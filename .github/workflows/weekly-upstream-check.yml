@@ -1,0 +1,76 @@
+name: Weekly upstream check
+
+on:
+  schedule:
+    - cron: "0 2 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  check-upstream:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Resolve upstream from fork metadata
+        id: meta
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -e
+          repo_json=$(curl -fsSL -H "Authorization: Bearer $GH_TOKEN" -H "Accept: application/vnd.github+json" https://api.github.com/repos/${GITHUB_REPOSITORY})
+          upstream_full=$(printf '%s' "$repo_json" | python3 -c 'import sys,json; d=json.load(sys.stdin); print((d.get("parent") or {}).get("full_name") or "")')
+          upstream_branch=$(printf '%s' "$repo_json" | python3 -c 'import sys,json; d=json.load(sys.stdin); print((d.get("parent") or {}).get("default_branch") or "")')
+          if [ -z "$upstream_full" ] || [ -z "$upstream_branch" ]; then
+            echo "No upstream parent metadata found; skipping."
+            echo "skip=true" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+          echo "upstream_full=$upstream_full" >> $GITHUB_OUTPUT
+          echo "upstream_branch=$upstream_branch" >> $GITHUB_OUTPUT
+          echo "skip=false" >> $GITHUB_OUTPUT
+
+      - name: Fetch upstream
+        if: steps.meta.outputs.skip == 'false'
+        run: |
+          set -e
+          git remote add upstream https://github.com/${{ steps.meta.outputs.upstream_full }}.git || git remote set-url upstream https://github.com/${{ steps.meta.outputs.upstream_full }}.git
+          git fetch upstream ${{ steps.meta.outputs.upstream_branch }} --no-tags
+
+      - name: Check for updates
+        if: steps.meta.outputs.skip == 'false'
+        id: diff
+        run: |
+          set -e
+          LOCAL=$(git rev-parse HEAD)
+          UPSTREAM=$(git rev-parse upstream/${{ steps.meta.outputs.upstream_branch }})
+          echo "local=$LOCAL" >> $GITHUB_OUTPUT
+          echo "upstream=$UPSTREAM" >> $GITHUB_OUTPUT
+          if [ "$LOCAL" = "$UPSTREAM" ]; then
+            echo "changed=false" >> $GITHUB_OUTPUT
+          else
+            echo "changed=true" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Create pull request
+        if: steps.diff.outputs.changed == 'true'
+        uses: peter-evans/create-pull-request@v7
+        with:
+          token: ${{ github.token }}
+          commit-message: "chore: sync upstream changes"
+          branch: chore/weekly-upstream-sync
+          delete-branch: true
+          title: "chore: weekly upstream sync"
+          body: |
+            Weekly automated upstream update check.
+
+            - Upstream: `${{ steps.meta.outputs.upstream_full }}`
+            - Upstream branch: `${{ steps.meta.outputs.upstream_branch }}`
+            - Local SHA: `${{ steps.diff.outputs.local }}`
+            - Upstream SHA: `${{ steps.diff.outputs.upstream }}`
