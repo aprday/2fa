@@ -78,6 +78,4 @@ jobs:
       - name: Notify Telegram on PR created
         if: steps.diff.outputs.changed == 'true'
         run: |
-          curl -s -X POST "https://api.telegram.org/bot${{ secrets.TELEGRAM_BOT_TOKEN }}/sendMessage"             -d "chat_id=${{ secrets.TELEGRAM_CHAT_ID }}"             --data-urlencode "text=🔄 仓库 ${{ github.repository }} 检测到上游更新并已创建 PR
-上游: ${{ steps.meta.outputs.upstream_full }}
-PR 列表: https://github.com/${{ github.repository }}/pulls"
+          curl -s -X POST "https://api.telegram.org/bot${{ secrets.TELEGRAM_BOT_TOKEN }}/sendMessage" -d "chat_id=${{ secrets.TELEGRAM_CHAT_ID }}" --data-urlencode "text=🔄 仓库 ${{ github.repository }} 检测到上游更新并已创建 PR%0A上游: ${{ steps.meta.outputs.upstream_full }}%0APR 列表: https://github.com/${{ github.repository }}/pulls"
