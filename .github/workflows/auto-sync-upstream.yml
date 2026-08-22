@@ -53,11 +53,11 @@ jobs:
 
           git remote remove upstream 2>/dev/null || true
           git remote add upstream "https://github.com/$parent.git"
-          git fetch upstream "$upstream_branch:refs/remotes/upstream/$upstream_branch"
+          git fetch upstream "refs/heads/$upstream_branch:refs/remotes/upstream/$upstream_branch"
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
-          if ! git merge --no-commit --no-ff -X ours "upstream/$upstream_branch"; then
+          if ! git merge --no-ff -X ours -m "chore: merge upstream updates" "upstream/$upstream_branch"; then
             if git rev-parse -q --verify MERGE_HEAD >/dev/null; then
               echo "Resolving remaining conflicts in favor of fork customizations."
               git checkout --ours -- .
@@ -73,8 +73,10 @@ jobs:
             cp -a "$preserve_dir/workflows" .github/workflows
           fi
           git add -A
-          git commit -m "chore: merge upstream updates"
-          git push origin HEAD:"$default_branch"
+          if ! git diff --cached --quiet; then
+            git commit --amend --no-edit
+          fi
+          git push origin HEAD:"refs/heads/$default_branch"
 
       - name: Verify upstream is absorbed
         env:
