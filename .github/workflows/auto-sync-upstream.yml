@@ -53,7 +53,7 @@ jobs:
 
           git remote remove upstream 2>/dev/null || true
           git remote add upstream "https://github.com/$parent.git"
-          git fetch upstream "$upstream_branch"
+          git fetch upstream "$upstream_branch:refs/remotes/upstream/$upstream_branch"
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
