@@ -431,7 +431,6 @@ export function getResponsiveStyles() {
         padding: 12px;
         padding-top: 16px;
         margin-bottom: 0;
-        border-radius: 4px;
         box-shadow: none;
       }
       
@@ -569,7 +568,8 @@ export function getResponsiveStyles() {
         padding: 8px;
       }
       
-      .secrets-list {
+      .secrets-list,
+      .service-group-grid {
         grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
         gap: 12px;
         justify-content: center;
@@ -654,7 +654,8 @@ export function getResponsiveStyles() {
       }
 
       /* iPad 和平板动态多列卡片布局 */
-      .secrets-list {
+      .secrets-list,
+      .service-group-grid {
         grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
         gap: 14px;
         justify-content: center;
@@ -841,7 +842,8 @@ export function getResponsiveStyles() {
         max-width: 1400px;
       }
 
-      .secrets-list {
+      .secrets-list,
+      .service-group-grid {
         grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
         gap: 16px;
         justify-content: center;
@@ -856,7 +858,6 @@ export function getResponsiveStyles() {
         padding: 20px;
         padding-top: 24px;
         margin-bottom: 0;
-        border-radius: 6px;
         box-shadow: none;
       }
 

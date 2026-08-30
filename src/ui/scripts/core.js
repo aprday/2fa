@@ -10,7 +10,6 @@ import { SERVICE_LOGOS } from '../config/serviceLogos.js';
  * @returns {string} Core JavaScript 代码
  */
 export function getCoreCode() {
-	// 将 SERVICE_LOGOS 配置序列化为客户端代码
 	const serviceLogosJSON = JSON.stringify(SERVICE_LOGOS, null, 2);
 
 	return `    // ========== Service Logos 配置 ==========
@@ -27,7 +26,7 @@ export function getCoreCode() {
      */
     function splitWords(text) {
       // 将连字符放在字符类最后，避免被解析为范围运算符
-      return text.toLowerCase().trim().split(/[\\\\s._-]+/).filter(Boolean);
+      return text.toLowerCase().trim().split(/[\\s._-]+/).filter(Boolean);
     }
 
     /**
@@ -64,7 +63,7 @@ export function getCoreCode() {
       const normalizedName = serviceName.toLowerCase().trim();
 
       // 1. 精确匹配（最快）
-      if (SERVICE_LOGOS[normalizedName]) {
+      if (Object.prototype.hasOwnProperty.call(SERVICE_LOGOS, normalizedName)) {
         return \`/api/favicon/\${SERVICE_LOGOS[normalizedName]}\`;
       }
 
@@ -104,6 +103,8 @@ export function getCoreCode() {
 
         // 恢复用户的排序选择
         restoreSortPreference();
+        restoreGroupSortPreference();
+        restoreViewModePreference();
 
         // 排序 popover 外部点击 / Escape 关闭
         if (typeof initSortDropdownOutsideClose === 'function') {
@@ -266,15 +267,54 @@ export function getCoreCode() {
       '</div>';
     }
 
+    function createServiceGroupSection(group, index) {
+      const headingId = 'service-group-heading-' + index;
+      const hasFilteredCount = Boolean(currentSearchQuery) && group.matchedCount !== group.totalCount;
+      const countText = hasFilteredCount
+        ? group.matchedCount + ' / ' + group.totalCount
+        : group.totalCount + ' 个';
+      const countLabel = hasFilteredCount
+        ? '匹配 ' + group.matchedCount + ' 个，共 ' + group.totalCount + ' 个'
+        : '共 ' + group.totalCount + ' 个';
+
+      return '<section class="service-group" aria-labelledby="' + headingId + '">' +
+        '<div class="service-group-header">' +
+          '<h2 class="service-group-title" id="' + headingId + '">' + escapeHTML(group.name) + '</h2>' +
+          '<span class="service-group-count" aria-label="' + escapeHTML(countLabel) + '">' + countText + '</span>' +
+        '</div>' +
+        '<div class="service-group-grid">' + group.items.map(secret => createSecretCard(secret)).join('') + '</div>' +
+      '</section>';
+    }
+
+    function clearOTPIntervalsExcept(visibleSecrets) {
+      const visibleIds = new Set((visibleSecrets || []).map(secret => String(secret.id)));
+      Object.keys(otpIntervals).forEach(secretId => {
+        if (visibleIds.has(secretId)) return;
+        clearInterval(otpIntervals[secretId]);
+        delete otpIntervals[secretId];
+      });
+    }
+
     // 渲染过滤后的密钥列表
     async function renderFilteredSecrets() {
+      const renderGeneration = ++secretRenderGeneration;
       const loading = document.getElementById('loading');
       const secretsList = document.getElementById('secretsList');
       const emptyState = document.getElementById('emptyState');
 
+      // 重绘会替换 OTP 节点；先取消旧节点上的排队/播放动效，避免 flyer 残留或异步回调命中脱离节点。
+      if (typeof clearAllOTPAnimations === 'function') {
+        clearAllOTPAnimations();
+      }
+      if (typeof clearOTPWindowScheduler === 'function') {
+        clearOTPWindowScheduler();
+      }
+
       loading.style.display = 'none';
 
       if (currentSearchQuery && filteredSecrets.length === 0) {
+        clearOTPIntervalsExcept([]);
+        secretsList.innerHTML = '';
         secretsList.style.display = 'none';
         emptyState.innerHTML =
           '<div class="icon">🔍</div>' +
@@ -286,6 +326,8 @@ export function getCoreCode() {
       }
 
       if (secrets.length === 0) {
+        clearOTPIntervalsExcept([]);
+        secretsList.innerHTML = '';
         secretsList.style.display = 'none';
         emptyState.innerHTML =
           '<div class="icon">🔑</div>' +
@@ -300,12 +342,19 @@ export function getCoreCode() {
       }
 
       emptyState.style.display = 'none';
-      secretsList.style.display = 'grid';
 
       // 应用排序
       const sortedSecrets = sortSecrets(filteredSecrets, currentSortType);
+      const isGroupedView = currentViewMode === 'grouped';
+      secretsList.classList.toggle('is-grouped', isGroupedView);
+      secretsList.style.display = isGroupedView ? 'block' : 'grid';
 
-      secretsList.innerHTML = sortedSecrets.map(secret => createSecretCard(secret)).join('');
+      if (isGroupedView) {
+        const serviceGroups = groupSecretsByServiceFamily(sortedSecrets, secrets, currentGroupSortType);
+        secretsList.innerHTML = serviceGroups.map((group, index) => createServiceGroupSection(group, index)).join('');
+      } else {
+        secretsList.innerHTML = sortedSecrets.map(secret => createSecretCard(secret)).join('');
+      }
 
       // 🚀 性能优化：并发计算所有OTP
       const perfStart = performance.now();
@@ -314,6 +363,8 @@ export function getCoreCode() {
       await Promise.all(
         sortedSecrets.map(secret => updateOTP(secret.id))
       );
+
+      if (renderGeneration !== secretRenderGeneration) return;
 
       // 性能监控日志
       const perfEnd = performance.now();
@@ -325,14 +376,7 @@ export function getCoreCode() {
         startOTPInterval(secret.id);
       });
 
-      Object.keys(otpIntervals).forEach(secretId => {
-        if (!filteredSecrets.find(s => s.id === secretId)) {
-          if (otpIntervals[secretId]) {
-            clearInterval(otpIntervals[secretId]);
-            delete otpIntervals[secretId];
-          }
-        }
-      });
+      clearOTPIntervalsExcept(filteredSecrets);
     }
 
     // 从卡片点击复制OTP验证码
@@ -858,8 +902,11 @@ export function getCoreCode() {
           
           if (lastRefreshWindow !== currentWindow) {
             console.log('🔄 [安全检查] 时间窗口已切换，刷新验证码:', secret.name, '窗口:', currentWindow);
-            updateOTP(secret.id);
             window[lastRefreshKey] = currentWindow;
+            // 共享窗口调度器负责可见卡片的统一刷新；仅在其不可用时走单卡兜底。
+            if (typeof isOTPWindowScheduled !== 'function' || !isOTPWindowScheduled(secret.id)) {
+              updateOTP(secret.id);
+            }
           }
         }
       });
