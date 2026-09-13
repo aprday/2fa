@@ -37,6 +37,7 @@ export function getPWACode() {
           // 监听控制器变化
           navigator.serviceWorker.addEventListener('controllerchange', () => {
             console.log('🔄 Service Worker 控制器已更新');
+            requestPendingOperationSync();
           });
 
           // 📨 监听 Service Worker 消息（离线同步通知）
@@ -44,6 +45,8 @@ export function getPWACode() {
             console.log('[PWA] 收到 Service Worker 消息:', event.data);
             handleServiceWorkerMessage(event.data);
           });
+
+          requestPendingOperationSync(registration);
 
           // 定期检查更新（每小时）
           setInterval(() => {
@@ -59,6 +62,30 @@ export function getPWACode() {
       });
     } else {
       console.log('ℹ️  当前浏览器不支持 Service Worker');
+    }
+
+    /**
+     * 触发离线操作同步；不支持 Background Sync 时直接通知 Service Worker。
+     * @param {ServiceWorkerRegistration|null} registration - 当前注册对象
+     */
+    function requestPendingOperationSync(registration = null) {
+      if (navigator.onLine === false) return;
+
+      const postSyncMessage = () => {
+        // 注册后台同步失败时，页面可能已经离线。
+        if (navigator.onLine !== false && navigator.serviceWorker.controller) {
+          navigator.serviceWorker.controller.postMessage({ type: 'SYNC_OPERATIONS' });
+        }
+      };
+
+      if (registration && registration.sync) {
+        registration.sync.register('sync-operations').catch(error => {
+          console.warn('注册后台同步失败，改用页面触发:', error);
+          postSyncMessage();
+        });
+        return;
+      }
+      postSyncMessage();
     }
 
     /**
@@ -98,6 +125,15 @@ export function getPWACode() {
 
           if (message.failCount > 0) {
             showCenterToast('⚠️', \`\${message.failCount} 个操作同步失败\`);
+          }
+
+          // 网络传输失败只延后同步；在线信号可能滞后，保留页面重试机会。
+          if ((message.failCount > 0 || message.deferredCount > 0) && navigator.onLine !== false) {
+            setTimeout(() => {
+              navigator.serviceWorker.ready
+                .then(requestPendingOperationSync)
+                .catch(error => console.warn('重试离线同步失败:', error));
+            }, 30000);
           }
           break;
 
@@ -215,11 +251,7 @@ export function getPWACode() {
 
       // 手动触发同步（作为备用，如果 Background Sync 不可用）
       if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
-        navigator.serviceWorker.ready.then(registration => {
-          if (registration.sync) {
-            return registration.sync.register('sync-operations');
-          }
-        }).catch(err => {
+        navigator.serviceWorker.ready.then(requestPendingOperationSync).catch(err => {
           console.warn('手动触发同步失败:', err);
         });
       }
@@ -281,15 +313,18 @@ export function getPWACode() {
         if (typeof secrets !== 'undefined' && secrets && secrets.length > 0) {
           console.log('🔄 正在刷新 ' + secrets.length + ' 个验证码...');
           
-          // 并发刷新所有验证码
-          Promise.all(
-            secrets.map(secret => {
-              if (typeof updateOTP === 'function') {
-                return updateOTP(secret.id);
-              }
-              return Promise.resolve();
-            })
-          ).then(() => {
+          // 并发计算并原子提交所有验证码，避免快卡先闪现、慢卡随后再播放动画。
+          const refreshPromise = typeof updateOTPSecretsInBatch === 'function'
+            ? updateOTPSecretsInBatch(secrets, { includeHOTP: true })
+            : Promise.all(
+              secrets.map(secret => {
+                if (typeof updateOTP === 'function') {
+                  return updateOTP(secret.id, null, secret);
+                }
+                return Promise.resolve();
+              })
+            );
+          refreshPromise.then(() => {
             console.log('✅ 所有验证码已刷新完成');
           }).catch(err => {
             console.error('❌ 刷新验证码时出错:', err);
@@ -313,11 +348,15 @@ export function getPWACode() {
         if (typeof secrets !== 'undefined' && secrets && secrets.length > 0) {
           console.log('🔄 窗口焦点恢复，检查并刷新验证码');
           
-          secrets.forEach(secret => {
-            if (typeof updateOTP === 'function') {
-              updateOTP(secret.id);
-            }
-          });
+          if (typeof updateOTPSecretsInBatch === 'function') {
+            updateOTPSecretsInBatch(secrets, { includeHOTP: true });
+          } else {
+            secrets.forEach(secret => {
+              if (typeof updateOTP === 'function') {
+                updateOTP(secret.id, null, secret);
+              }
+            });
+          }
         }
       }, 100);
     });

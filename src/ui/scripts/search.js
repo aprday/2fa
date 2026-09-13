@@ -354,10 +354,22 @@ export function getSearchCode() {
         return;
       }
 
+      const { familyMetadata, identityBySecret } = getServiceFamilyMetadata(secrets);
+      const searchableFamilyNames = new Map();
+      familyMetadata.forEach((metadata, key) => {
+        if (metadata.totalCount >= 2) {
+          searchableFamilyNames.set(key, resolveServiceGroupName(metadata).toLowerCase());
+        } else {
+          searchableFamilyNames.set(key, '其他服务');
+        }
+      });
+
       filteredSecrets = secrets.filter(secret => {
         const serviceName = secret.name.toLowerCase();
         const accountName = (secret.account || '').toLowerCase();
-        return serviceName.includes(trimmedQuery) || accountName.includes(trimmedQuery);
+        const identity = secret && typeof secret === 'object' ? identityBySecret.get(secret) : null;
+        const familyName = identity ? searchableFamilyNames.get(identity.key) || '' : '';
+        return serviceName.includes(trimmedQuery) || accountName.includes(trimmedQuery) || familyName.includes(trimmedQuery);
       });
 
       const totalCount = secrets.length;

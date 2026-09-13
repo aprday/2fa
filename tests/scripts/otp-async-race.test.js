@@ -4,6 +4,9 @@ import { getOTPCode } from '../../src/ui/scripts/otp.js';
 import { getTimeCode } from '../../src/ui/scripts/time.js';
 
 const SERVER_BASE_MS = Date.UTC(2026, 0, 1);
+const INITIAL_TOKEN = '111111';
+const PROMOTED_TOKEN = '222222';
+const NEXT_TOKEN = '333333';
 
 function createDeferred() {
 	let resolve;
@@ -124,6 +127,7 @@ function createHarness({ nowMs = SERVER_BASE_MS, secretOverrides = {}, reducedMo
 	const performance = {
 		now: () => state.monotonicMs,
 	};
+	const documentEventListeners = new Map();
 	const document = {
 		hidden: false,
 		body,
@@ -148,11 +152,13 @@ function createHarness({ nowMs = SERVER_BASE_MS, secretOverrides = {}, reducedMo
 	};
 	const window = {
 		addEventListener: vi.fn(),
+		cancelAnimationFrame,
 		crypto: globalThis.crypto,
 		matchMedia: vi.fn(() => ({ matches: reducedMotion })),
 		setInterval: vi.fn(),
 	};
 
+	// eslint-disable-next-line no-new-func
 	const api = new Function(
 		'Date',
 		'performance',
@@ -166,6 +172,8 @@ function createHarness({ nowMs = SERVER_BASE_MS, secretOverrides = {}, reducedMo
 		'setInterval',
 		'clearInterval',
 		'AbortController',
+		'requestAnimationFrame',
+		'cancelAnimationFrame',
 		'console',
 		'secrets',
 		'otpIntervals',
@@ -189,15 +197,17 @@ function createHarness({ nowMs = SERVER_BASE_MS, secretOverrides = {}, reducedMo
 		vi.fn(),
 		vi.fn(),
 		AbortController,
+		requestAnimationFrame,
+		cancelAnimationFrame,
 		silentConsole,
-		[secret],
+		secrets,
 		{},
 	);
 
 	const generationCalls = [];
-	api.otpCalculator.generateTOTP = vi.fn((_secret, counter) => {
+	api.otpCalculator.generateTOTP = vi.fn((generatedSecret, counter) => {
 		const deferred = createDeferred();
-		generationCalls.push({ counter, ...deferred });
+		generationCalls.push({ counter, secret: generatedSecret, ...deferred });
 		return deferred.promise;
 	});
 

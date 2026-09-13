@@ -218,16 +218,24 @@ CORS 采用动态同源策略：仅允许与当前请求 Host 同源的来源（
 
 一键部署创建的是独立仓库（非 Fork），统一使用 **Sync Upstream** 工作流原地升级。
 
-**首次升级前**：一键部署创建的仓库不包含 `.github/workflows/` 目录。请先在自己的仓库中新增文件 `.github/workflows/sync-upstream.yml`，内容复制自上游文件 <https://github.com/wuzf/2fa/blob/main/.github/workflows/sync-upstream.yml>，提交一次即可。
-
 **升级步骤**：
 
 1. 打开一键部署时在您 GitHub 上生成的 2fa 仓库
 2. 进入 **Actions** → **Sync Upstream** → **Run workflow**
-3. 工作流会同步上游最新代码，并自动合并您仓库中的 Worker 名称、KV 绑定等部署配置
-4. Cloudflare 会自动重新部署同一个 Worker；如未自动部署，在 **Deployments** 页面手动重新部署最新提交
+3. 上游分支保持默认的 `main`，发起一次新运行
+4. 等待同步完成及 Cloudflare 自动部署，之后刷新应用即可
+
+工作流会自动合并您仓库中的 Worker 名称、KV 绑定等部署配置，保留仓库中已有的工作流文件。Cloudflare 会重新部署同一个 Worker；如未自动部署，在 **Deployments** 页面重新部署最新提交。
+
+**没有 Sync Upstream 入口时**：一键部署创建的仓库可能不包含工作流。此时才需要在自己的仓库中新增 `.github/workflows/sync-upstream.yml`，内容复制自上游文件 <https://github.com/wuzf/2fa/blob/main/.github/workflows/sync-upstream.yml>，提交一次即可。之后按上面步骤升级。
 
 工作流运行摘要中会展示 `wrangler.toml` 与上游的 diff，如果您维护了特殊配置，可据此确认合并结果。
+
+### 升级故障排查
+
+**提示 `refusing to allow a GitHub App to create or update workflow ... without workflows permission`**：这是旧同步流程尝试更新工作流文件时触发的权限错误。修复发布到上游 `main` 后，包含 **Merge deployment config**（自动合并部署配置）步骤的现有 **Sync Upstream** 工作流会自动获得兼容修复，包括 [Issue #18](https://github.com/wuzf/2fa/issues/18) 对应的版本。直接选择 `main`，通过 **Run workflow** 发起一次新运行即可，无需手动修改 YAML、增加令牌权限或配置 PAT。不要选择不含修复的旧版本标签。
+
+同步会保留您仓库中原有的工作流文件，因此上游新增的统计等工作流不会影响应用升级。极早期、不包含自动合并部署配置步骤的入口无法自动获得这个修复，需要先将入口更新为上面的上游文件；完全没有入口的仓库也需要先完成一次安装。
 
 ### 命令行部署用户
 
@@ -237,6 +245,29 @@ npm install
 git diff wrangler.toml   # 检查配置变更，确认自己维护的 KV ID、路由等仍然正确
 npm run deploy
 ```
+
+### 回滚到 1.8.0 之前的版本
+
+1.8.0 起，HOTP 密钥每次复制验证码后的计数器递增写入独立的 KV 键（`hotp-counter:*`，当前纪元记录在 `hotp-counter-epoch`），不再改写加密主文档 `secrets`。1.8.0 之前的版本只读主文档，**直接回滚会让 HOTP 计数器退回到升级时的值**，之后生成的验证码会被服务方判定为已使用。
+
+回滚前先登录，再调用一次压实接口把有效计数器写回主文档：
+
+```bash
+# 1. 登录并保存 Cookie
+curl -X POST https://your-worker.workers.dev/api/login \
+  -H "Content-Type: application/json" \
+  -d '{"credential":"YOUR_PASSWORD"}' \
+  -c cookies.txt
+
+# 2. 压实 HOTP 计数器
+curl -X POST https://your-worker.workers.dev/api/secrets/counters/compact \
+  -H "X-Confirm-Maintenance: compact-hotp-counters" \
+  -b cookies.txt
+```
+
+返回 `"success":true` 并带有 `compactedCount`（HOTP 密钥数）即完成，之后再到 Cloudflare Dashboard → Worker → **Deployments** 回滚，或用命令行部署旧版本。返回 500 时直接重试，轮换成功前旧计数器仍然有效。压实期间不要在其他设备复制 HOTP 验证码。没有 HOTP 密钥的部署可以跳过这一步。
+
+接口细节见 [API 参考：压实 HOTP 计数器](API_REFERENCE.md#压实-hotp-计数器)。
 
 ---
 
