@@ -3,6 +3,9 @@
  * 包含所有导出功能，支持多种格式导出密钥
  */
 
+import { getStandaloneHead } from '../standalone.js';
+import { getBackupDocumentStyles } from '../styles/backupDocument.js';
+
 /**
  * 获取导出相关代码
  * @returns {string} 导出 JavaScript 代码
@@ -177,12 +180,13 @@ export function getExportCode() {
       listContainer.innerHTML = '';
 
       config.options.forEach(option => {
-        const optionEl = document.createElement('div');
+        const optionEl = document.createElement('button');
+        optionEl.type = 'button';
         optionEl.className = 'sub-format-option';
         optionEl.onclick = () => selectSubFormat(option.id);
 
         optionEl.innerHTML = \`
-          <div class="sub-format-icon">\${option.icon}</div>
+          <div class="sub-format-icon">\${dialogIcon('file')}</div>
           <div class="sub-format-info">
             <div class="sub-format-name">\${option.name}</div>
             <div class="sub-format-ext">\${option.ext}</div>
@@ -767,55 +771,22 @@ export function getExportCode() {
         const htmlContent = '<!DOCTYPE html>\\n' +
           '<html lang="zh-CN">\\n' +
           '<head>\\n' +
-          '  <meta charset="UTF-8">\\n' +
-          '  <meta name="viewport" content="width=device-width, initial-scale=1.0">\\n' +
+          ${JSON.stringify(getStandaloneHead('2FA 密钥备份', getBackupDocumentStyles())).replace(/</g, '\\u003c')} +
+          '  <meta name="2fa-backup-meta" content="skippedInvalidCount=0">\\n' +
           '  <meta name="robots" content="noindex, nofollow">\\n' +
           '  <meta name="googlebot" content="noindex, nofollow">\\n' +
-          '  <meta name="2fa-backup-meta" content="skippedInvalidCount=0">\\n' +
-          '  <title>2FA 密钥导出 - ' + getDateString() + '</title>\\n' +
-          '  <style>\\n' +
-          '    * { margin: 0; padding: 0; box-sizing: border-box; }\\n' +
-          '    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Helvetica Neue", Arial, sans-serif; background: #f5f6fa; padding: 20px; color: #1f2937; }\\n' +
-          '    .container { max-width: 96%; margin: 0 auto; background: white; border-radius: 12px; box-shadow: 0 2px 16px rgba(15, 23, 42, 0.08); padding: 28px; }\\n' +
-          '    h1 { color: #0f172a; margin-bottom: 8px; font-size: 28px; font-weight: 700; }\\n' +
-          '    .meta { color: #475569; font-size: 14px; margin-bottom: 22px; padding-bottom: 18px; border-bottom: 1px solid #e2e8f0; }\\n' +
-          '    .meta p { margin: 6px 0; }\\n' +
-          '    table { width: 100%; border-collapse: collapse; margin-top: 10px; background: white; }\\n' +
-          '    thead th { background: #e2e8f0; color: #0f172a; padding: 12px 10px; text-align: left; font-weight: 600; font-size: 13px; border: 1px solid #cbd5e1; }\\n' +
-          '    td { padding: 12px 10px; font-size: 13px; color: #1f2937; vertical-align: top; border: 1px solid #cbd5e1; }\\n' +
-          '    tbody tr:nth-child(even) { background: #f8fafc; }\\n' +
-          '    .service { font-weight: 600; color: #1d4ed8; }\\n' +
-          '    .account { color: #475569; }\\n' +
-          '    code { font-family: "Courier New", Consolas, monospace; font-size: 12px; word-break: break-all; }\\n' +
-          '    .param { font-family: "Courier New", Consolas, monospace; font-size: 12px; }\\n' +
-          '    .qr-cell { text-align: center; min-width: 120px; }\\n' +
-          '    .qr-cell img { width: 96px; height: 96px; display: block; margin: 0 auto; border: 1px solid #cbd5e1; border-radius: 6px; }\\n' +
-          '    .qr-placeholder { color: #64748b; font-size: 12px; }\\n' +
-          '    .footer { margin-top: 28px; padding-top: 16px; border-top: 1px solid #e2e8f0; text-align: center; color: #94a3b8; font-size: 12px; }\\n' +
-          '    @media print {\\n' +
-          '      body { background: white; padding: 0; }\\n' +
-          '      .container { box-shadow: none; max-width: 100%; padding: 0; }\\n' +
-          '      table { page-break-inside: auto; }\\n' +
-          '      tr { page-break-inside: avoid; page-break-after: auto; }\\n' +
-          '      .qr-cell img { width: 80px; height: 80px; }\\n' +
-          '    }\\n' +
-          '    @media screen and (max-width: 768px) {\\n' +
-          '      body { padding: 12px; }\\n' +
-          '      .container { padding: 16px; }\\n' +
-          '      th, td { padding: 8px 6px; font-size: 12px; }\\n' +
-          '      .qr-cell img { width: 72px; height: 72px; }\\n' +
-          '    }\\n' +
-          '  </style>\\n' +
           '</head>\\n' +
           '<body data-skipped-invalid-count="0">\\n' +
-          '  <div class="container">\\n' +
-          '    <h1>🔐 2FA 密钥备份</h1>\\n' +
+          '  <main class="backup-document">\\n' +
+          '    <header class="document-header"><h1>2FA 密钥备份</h1>\\n' +
           '    <div class="meta">\\n' +
-          '      <p>📅 导出时间: ' + exportDate.toLocaleString('zh-CN', {year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit'}) + '</p>\\n' +
-          '      <p>📊 密钥数量: ' + sortedSecrets.length + ' 个</p>\\n' +
-          '      <p>🧾 格式: ' + escapeHTML(formatLabel) + '</p>\\n' +
+          '      <p>导出时间: ' + exportDate.toLocaleString('zh-CN', {year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit'}) + '</p>\\n' +
+          '      <p>密钥数量: ' + sortedSecrets.length + ' 个</p>\\n' +
+          '      <p>格式: ' + escapeHTML(formatLabel) + '</p>\\n' +
           '      <p>' + escapeHTML(qrDescription) + '</p>\\n' +
           '    </div>\\n' +
+          '    </header>\\n' +
+          '    <div class="table-scroll" role="region" aria-label="备份密钥表格" tabindex="0">\\n' +
           '    <table data-skipped-invalid-count="0">\\n' +
           '      <thead>\\n' +
           '        <tr>\\n' +
@@ -834,13 +805,14 @@ export function getExportCode() {
                  rowsHtml +
           '      </tbody>\\n' +
           '    </table>\\n' +
+          '    </div>\\n' +
           '    <div class="footer">\\n' +
-          '      Generated by <a href="https://github.com/wuzf" target="_blank" style="color: #2563eb; text-decoration: none;">wuzf</a> | ' +
-          '      <a href="https://github.com/wuzf/2fa" target="_blank" style="color: #2563eb; text-decoration: none;">2FA</a> | ' +
+          '      Generated by <a href="https://github.com/wuzf" target="_blank" rel="noopener noreferrer">wuzf</a> | ' +
+          '      <a href="https://github.com/wuzf/2fa" target="_blank" rel="noopener noreferrer">2FA</a> | ' +
                  exportTimestamp + '\\n' +
           '    </div>\\n' +
-          '    <script id="__2fa_backup_data__" type="application/json">' + embeddedPayload + '</script>\\n' +
-          '  </div>\\n' +
+          '    <script id="__2fa_backup_data__" type="application/json">' + embeddedPayload + '<' + '/script>\\n' +
+          '  </main>\\n' +
           '</body>\\n' +
           '</html>';
 
@@ -1102,6 +1074,10 @@ export function getExportCode() {
      * @param {Object} options - 导出选项
      */
     async function exportAsLastPass(sortedSecrets, options = {}) {
+      if (sortedSecrets.some(secret => String(secret.type || 'TOTP').toUpperCase() === 'HOTP')) {
+        showCenterToast('❌', '当前 LastPass 导出格式无法保留 HOTP 计数器，请改用 JSON、Aegis 或 FreeOTP');
+        return false;
+      }
       const filenamePrefix = options.filenamePrefix || 'LastPass Authenticator';
 
       // 生成 UUID v4
@@ -1196,6 +1172,10 @@ export function getExportCode() {
           period: (secret.period || 30).toString()
         });
 
+        if (type === 'hotp') {
+          params.delete('period');
+          params.set('counter', String(secret.counter || 0));
+        }
         const uri = 'otpauth://' + type + '/' + label + '?' + params.toString();
 
         return {
@@ -1311,20 +1291,23 @@ export function getExportCode() {
           issuer: serviceName
         });
 
+        if (type === 'hotp') {
+          params.delete('period');
+          params.set('counter', String(secret.counter || 0));
+        }
         const otpauthUrl = 'otpauth://' + type + '/' + label + '?' + params.toString();
 
-        // Bitwarden Authenticator CSV 格式: folder,favorite,type,name,login_uri,login_totp,issuer,period,digits
-        // 但实际只需要前6列header，后面的数据会自动跟上
+        // Keep each row aligned with the six-column header; OTP parameters live in the URI.
         const row = [
           '',                    // folder
           '',                    // favorite
           '1',                   // type (1 = login)
           serviceName,           // name
           '',                    // login_uri
-          otpauthUrl + ',' + serviceName + ',' + period + ',' + digits  // login_totp + extra fields
+          otpauthUrl              // login_totp
         ];
 
-        csvRows.push(row.join(','));
+        csvRows.push(row.map(escapeCSV).join(','));
       });
 
       const content = csvRows.join('\\n');
@@ -1379,6 +1362,10 @@ export function getExportCode() {
           issuer: serviceName
         });
 
+        if (type === 'hotp') {
+          params.delete('period');
+          params.set('counter', String(secret.counter || 0));
+        }
         const otpauthUrl = 'otpauth://' + type + '/' + label + '?' + params.toString();
 
         return {
@@ -1584,7 +1571,8 @@ export function getExportCode() {
           issuerExt: secret.name || '',
           label: secret.account || '',
           period: secret.period || 30,
-          type: type
+          type: type,
+          ...(type === 'HOTP' ? { counter: secret.counter || 0 } : {})
         };
 
         // 解码 secret 为字节
@@ -1727,7 +1715,11 @@ export function getExportCode() {
 
         // 2. 写入 uuid-token -> meta (JSON字符串)
         parts.push(writeJavaString(token.uuid + '-token'));
-        parts.push(writeJavaString(JSON.stringify(token.meta)));
+        // ASCII JSON escapes preserve Unicode through Java's modified UTF-8
+        // strings and the binary-string import path, including surrogate pairs.
+        const metaJson = JSON.stringify(token.meta).replace(/[^\\x00-\\x7f]/g,
+          char => '\\\\u' + char.charCodeAt(0).toString(16).padStart(4, '0'));
+        parts.push(writeJavaString(metaJson));
       }
 
       // 写入 masterKey (也需要转义斜杠)
@@ -1798,14 +1790,12 @@ export function getExportCode() {
       }
 
       try {
-        showCenterToast('⏳', '正在生成加密备份...');
-
         // 获取排序后的密钥
         const sortSelect = document.getElementById('exportSortOrder');
         const sortValue = sortSelect ? sortSelect.value : 'index-asc';
         const secretsToExport = sortSecretsForExport([...secrets], sortValue);
 
-        await exportAsTOTPAuthenticatorEncrypted(secretsToExport, password);
+        if (await exportAsTOTPAuthenticatorEncrypted(secretsToExport, password) === false) return;
         hideTOTPAuthExportModal();
       } catch (error) {
         showCenterToast('❌', '导出失败：' + error.message);
@@ -1844,6 +1834,11 @@ export function getExportCode() {
      * @param {string} password - 加密密码
      */
     async function exportAsTOTPAuthenticatorEncrypted(sortedSecrets, password) {
+      if (sortedSecrets.some(secret => String(secret.type || 'TOTP').toUpperCase() === 'HOTP' ||
+          String(secret.algorithm || 'SHA1').toUpperCase() !== 'SHA1')) {
+        showCenterToast('❌', '当前 TOTP Authenticator 导出仅支持 SHA1 TOTP，请改用 JSON、Aegis 或 FreeOTP 保留完整参数');
+        return false;
+      }
       const filenamePrefix = '2FA-secrets';
 
       // 构建 TOTP Authenticator 格式的数据
@@ -1928,26 +1923,7 @@ export function getExportCode() {
 
     function showExportSuccess(count, format) {
       const formatName = format || '密钥';
-      const toast = document.createElement('div');
-      toast.style.cssText =
-        'position: fixed;' +
-        'top: 20px;' +
-        'right: 20px;' +
-        'background: #27ae60;' +
-        'color: white;' +
-        'padding: 15px 20px;' +
-        'border-radius: 8px;' +
-        'z-index: 9999;' +
-        'font-size: 14px;' +
-        'box-shadow: 0 4px 12px rgba(0,0,0,0.2);';
-      toast.textContent = '✅ 成功导出 ' + count + ' 个密钥（' + formatName + '格式）！';
-      document.body.appendChild(toast);
-
-      setTimeout(() => {
-        if (toast.parentNode) {
-          toast.parentNode.removeChild(toast);
-        }
-      }, 3000);
+      showCenterToast('✅', '已导出 ' + count + ' 个密钥（' + formatName + '）');
     }
 `;
 }

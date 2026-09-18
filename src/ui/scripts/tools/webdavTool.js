@@ -38,17 +38,17 @@ export function getWebdavToolCode() {
         if (data.destinations && data.destinations.length > 0) {
           listEl.innerHTML = data.destinations.map(dest => _renderWebdavCard(dest)).join('');
         } else {
-          listEl.innerHTML = '<div style="text-align: center; padding: 20px; color: var(--text-tertiary); font-size: 13px;">暂无 WebDAV 目标，点击下方按钮添加</div>';
+          listEl.innerHTML = '<div style="text-align: center; padding: 20px; color: var(--text-tertiary); font-size: var(--dialog-caption-size);">暂无 WebDAV 目标，点击下方按钮添加</div>';
         }
 
         // 达到上限时隐藏添加按钮
-        addBtn.style.display = data.count >= data.maxAllowed ? 'none' : 'block';
+        addBtn.dataset.canAdd = data.count < data.maxAllowed ? 'true' : 'false';
 
         // 隐藏表单
         hideWebdavForm();
       } catch (error) {
         console.error('加载 WebDAV 配置失败:', error);
-        listEl.innerHTML = '<div style="text-align: center; padding: 20px; color: var(--danger-color); font-size: 13px;">加载失败，请稍后重试</div>';
+        listEl.innerHTML = '<div style="text-align: center; padding: 20px; color: var(--danger-color); font-size: var(--dialog-caption-size);">加载失败，请稍后重试</div>';
       }
     }
 
@@ -73,7 +73,7 @@ export function getWebdavToolCode() {
         + '<span class="dest-card-url">' + _escapeHtml(dest.config.url) + '</span>'
         + '</div>'
         + '<label class="dest-toggle" onclick="event.stopPropagation()">'
-        + '<input type="checkbox" ' + (dest.enabled ? 'checked' : '') + ' onchange="toggleWebdavDest(\\'' + dest.id + '\\', this.checked)" />'
+        + '<input type="checkbox" aria-label="启用此同步目标" ' + (dest.enabled ? 'checked' : '') + ' onchange="toggleWebdavDest(\\'' + dest.id + '\\', this.checked)" />'
         + '<span class="dest-toggle-slider"></span>'
         + '</label>'
         + '</div>'
@@ -82,8 +82,8 @@ export function getWebdavToolCode() {
         + '<span class="dest-status-text">' + _escapeHtml(statusText) + '</span>'
         + '</div>'
         + '<div class="dest-card-actions">'
-        + '<button class="btn btn-sm" onclick="event.stopPropagation(); editWebdavDest(\\'' + dest.id + '\\')" style="font-size: 12px; padding: 4px 12px;">编辑</button>'
-        + '<button class="btn btn-sm btn-danger-outline" onclick="event.stopPropagation(); deleteWebdavDest(\\'' + dest.id + '\\', \\'' + _escapeHtml(dest.name).replace(/'/g, "\\\\'") + '\\')" style="font-size: 12px; padding: 4px 12px;">删除</button>'
+        + '<button class="btn btn-sm" onclick="event.stopPropagation(); editWebdavDest(\\'' + dest.id + '\\')" >编辑</button>'
+        + '<button class="btn btn-sm btn-danger-outline" onclick="event.stopPropagation(); deleteWebdavDest(\\'' + dest.id + '\\', \\'' + _escapeHtml(dest.name).replace(/'/g, "\\\\'") + '\\')" >删除</button>'
         + '</div>'
         + '</div>';
     }
@@ -114,6 +114,8 @@ export function getWebdavToolCode() {
 
     function hideWebdavForm() {
       document.getElementById('webdavFormArea').style.display = 'none';
+      const addBtn = document.getElementById('webdavAddBtn');
+      addBtn.style.display = addBtn.dataset.canAdd === 'false' ? 'none' : 'block';
     }
 
     async function editWebdavDest(id) {

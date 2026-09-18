@@ -10,6 +10,17 @@
 export function getUICode() {
 	return `    // ========== UI 交互模块 ==========
 
+    // Browsers can retain :focus-visible when a keyboard-focused button is
+    // clicked again. Track input changes without blurring the current control.
+    document.addEventListener('pointerdown', function() {
+      document.documentElement.setAttribute('data-card-input', 'pointer');
+    }, true);
+    document.addEventListener('keydown', function(event) {
+      if (!event.ctrlKey && !event.metaKey && !event.altKey) {
+        document.documentElement.removeAttribute('data-card-input');
+      }
+    }, true);
+
     // Toast 提示相关变量
     let toastTimeout = null;
     let isToastVisible = false;
@@ -35,7 +46,8 @@ export function getUICode() {
       }
 
       // 更新内容
-      iconElement.textContent = icon;
+      const feedbackIcon = icon === '✅' ? 'check' : icon === '❌' ? 'error' : icon === '⚠️' ? 'warning' : 'info';
+      iconElement.innerHTML = dialogIcon(feedbackIcon);
       messageElement.textContent = message;
 
       // 如果toast已经显示，先隐藏再显示，确保动画效果
@@ -67,30 +79,62 @@ export function getUICode() {
       }
     }
 
+    // Keep a single active change so an older cleanup cannot interrupt a newer fade.
+    let themeChange = null;
+
     // 应用主题（支持过渡动画）
     function applyTheme(theme, withTransition = false) {
       const root = document.documentElement;
+      const nextTheme = theme === 'dark' || (theme !== 'light' && window.matchMedia('(prefers-color-scheme: dark)').matches)
+        ? 'dark' : 'light';
+      if (nextTheme === (themeChange ? themeChange.theme : root.getAttribute('data-theme'))) return;
 
-      // 添加过渡类（如果需要动画）
-      if (withTransition && !window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
-        root.classList.add('theme-transition');
+      const animate = withTransition && !document.hidden && !window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      // Only visible cards and group headings need a fade. Offscreen transitions
+      // otherwise keep style/paint work running throughout the transition.
+      // Read bounds BEFORE removing existing transition styles. A layout read
+      // between removal and reapplication would finish the old fade immediately,
+      // making a rapid reversal jump to the previous target color first.
+      const surfaces = animate ? Array.from(document.querySelectorAll('.secret-card, .service-group-header')).filter(surface => {
+        const rect = surface.getBoundingClientRect();
+        return rect.width > 0 && rect.height > 0 && rect.bottom > 0 && rect.right > 0 &&
+          rect.top < window.innerHeight && rect.left < window.innerWidth;
+      }) : [];
 
-        // 过渡完成后移除类
-        setTimeout(() => {
-          root.classList.remove('theme-transition');
-        }, 300);
+      const previous = themeChange;
+      themeChange = null;
+      if (previous) {
+        if (previous.timer !== null) clearTimeout(previous.timer);
+        if (previous.frame !== null) cancelAnimationFrame(previous.frame);
+        previous.surfaces.forEach(surface => surface.classList.remove('theme-viewport-transition'));
       }
+      root.classList.remove('theme-transition', 'theme-instant');
+      surfaces.forEach(surface => surface.classList.add('theme-viewport-transition'));
+      const change = { theme: nextTheme, timer: null, frame: null, surfaces };
+      themeChange = change;
+      const finish = () => {
+        if (themeChange !== change) return;
+        themeChange = null;
+        surfaces.forEach(surface => surface.classList.remove('theme-viewport-transition'));
+        root.classList.remove('theme-transition', 'theme-instant');
+      };
+      const afterPaint = (callback) => {
+        change.frame = requestAnimationFrame(() => {
+          if (themeChange !== change) return;
+          change.frame = requestAnimationFrame(() => {
+            change.frame = null;
+            if (themeChange === change) callback();
+          });
+        });
+      };
 
-      // 设置主题属性
-      if (theme === 'dark') {
-        root.setAttribute('data-theme', 'dark');
-      } else if (theme === 'light') {
-        root.setAttribute('data-theme', 'light');
-      } else {
-        // auto 模式：跟随系统
-        const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-        root.setAttribute('data-theme', prefersDark ? 'dark' : 'light');
-      }
+      root.classList.add(animate ? 'theme-transition' : 'theme-instant');
+      root.setAttribute('data-theme', nextTheme);
+      // Start cleanup after styles have painted, with a small margin over 180ms.
+      afterPaint(() => {
+        if (animate) change.timer = setTimeout(finish, 220);
+        else finish();
+      });
     }
 
     function initTheme() {
@@ -98,7 +142,7 @@ export function getUICode() {
       window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
         const currentTheme = localStorage.getItem('theme') || 'auto';
         if (currentTheme === 'auto') {
-          applyTheme('auto');
+          applyTheme('auto', true);
         }
       });
     }
@@ -175,6 +219,7 @@ export function getUICode() {
       const overlay = document.getElementById('menuOverlay');
 
       mainBtn.classList.add('active');
+      mainBtn.setAttribute('aria-expanded', 'true');
       submenu.classList.add('show');
       overlay.classList.add('show');
 
@@ -193,6 +238,7 @@ export function getUICode() {
       const overlay = document.getElementById('menuOverlay');
 
       mainBtn.classList.remove('active');
+      mainBtn.setAttribute('aria-expanded', 'false');
       submenu.classList.remove('show');
       overlay.classList.remove('show');
     }
@@ -280,7 +326,7 @@ export function getUICode() {
       const maxX = Math.max(margin, vw - w - margin);
       const maxY = Math.max(margin, vh - h - margin);
       const clampedX = Math.min(Math.max(x, margin), maxX);
-      let clampedY = Math.min(Math.max(y, margin), maxY);
+      const clampedY = Math.min(Math.max(y, margin), maxY);
       const headerControls = document.querySelector('.search-action-row');
       if (headerControls) {
         const controlsRect = headerControls.getBoundingClientRect();
@@ -289,7 +335,21 @@ export function getUICode() {
           clampedX + w > controlsRect.left - margin &&
           clampedY < controlsRect.bottom + margin &&
           clampedY + h > controlsRect.top - margin;
-        if (overlapsHeader) clampedY = maxY;
+        if (overlapsHeader) {
+          // Move only as far as needed to clear the controls; never reset to the bottom.
+          const candidates = [
+            { x: clampedX, y: controlsRect.bottom + margin },
+            { x: clampedX, y: controlsRect.top - h - margin },
+            { x: controlsRect.left - w - margin, y: clampedY },
+            { x: controlsRect.right + margin, y: clampedY }
+          ].filter(pos => pos.x >= margin && pos.x <= maxX && pos.y >= margin && pos.y <= maxY);
+          if (candidates.length) {
+            return candidates.reduce((nearest, pos) =>
+              Math.hypot(pos.x - clampedX, pos.y - clampedY) < Math.hypot(nearest.x - clampedX, nearest.y - clampedY)
+                ? pos : nearest
+            );
+          }
+        }
       }
       return {
         x: clampedX,

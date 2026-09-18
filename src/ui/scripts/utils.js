@@ -1,3 +1,5 @@
+import { getDialogIconCode } from '../dialogIcons.js';
+
 /**
  * Utils 工具函数模块
  * 包含各种通用实用函数
@@ -8,7 +10,8 @@
  * @returns {string} Utils JavaScript 代码
  */
 export function getUtilsCode() {
-	return `    // ========== 工具函数模块 ==========
+	return `${getDialogIconCode()}
+    // ========== 工具函数模块 ==========
 
     // ==================== 第三方脚本按需加载 ====================
     // jsQR (~130KB) 和 qrcode-generator (~20KB) 改为按需加载，
@@ -161,7 +164,7 @@ export function getUtilsCode() {
           if (idx > 0) messageEl.appendChild(document.createElement('br'));
           messageEl.appendChild(document.createTextNode(line));
         });
-        iconEl.textContent = danger ? '⚠️' : '❓';
+        iconEl.innerHTML = dialogIcon(danger ? 'warning' : 'info');
         cancelBtn.textContent = cancelText;
         confirmBtn.textContent = confirmText;
         confirmBtn.classList.toggle('btn-danger', danger);
@@ -512,6 +515,8 @@ export function getUtilsCode() {
 
         // 使用qrcode-generator库在客户端生成QR码
         // 参数：typeNumber(0=自动), errorCorrectionLevel('L','M','Q','H')
+        // 默认转换器只保留每个字符的低 8 位，中文和 emoji 必须使用 UTF-8。
+        qrcode.stringToBytes = qrcode.stringToBytesFuncs['UTF-8'];
         const qr = qrcode(0, 'M');
         qr.addData(text);
         qr.make();
