@@ -1,4 +1,5 @@
 import { LIMITS } from '../../utils/constants.js';
+import { getTransferMessageLocalizerCode } from './transferMessages.js';
 
 /**
  * 备份模块
@@ -10,7 +11,7 @@ import { LIMITS } from '../../utils/constants.js';
  * @returns {string} 备份 JavaScript 代码
  */
 export function getBackupCode() {
-	return `    // ========== 备份恢复功能模块 ==========
+	return `${getTransferMessageLocalizerCode('localizeBackupMessage')}    // ========== 备份恢复功能模块 ==========
 
     function getSavedDefaultBackupExportFormat() {
       return getCachedDefaultExportFormat();
@@ -37,7 +38,7 @@ export function getBackupCode() {
         return;
       }
 
-      defaultBtn.textContent = '按默认格式导出 (' + getBackupExportFormatLabel(format) + ')';
+      defaultBtn.textContent = t('transferDefaultExport', { format: getBackupExportFormatLabel(format) });
       defaultBtn.disabled = false;
     }
 
@@ -50,6 +51,10 @@ export function getBackupCode() {
     }
 
     let selectedBackup = null;
+    let currentBackupPreview = null;
+    let restoreUploadStatusRenderer = null;
+    let backupListErrorRenderer = null;
+    let backupPreviewErrorRenderer = null;
     let backupList = [];
     let backupListCursor = null;
     let backupListHasMore = false;
@@ -88,7 +93,8 @@ export function getBackupCode() {
         return;
       }
       status.style.display = message ? 'block' : 'none';
-      status.textContent = message || '';
+      restoreUploadStatusRenderer = typeof message === 'function' ? message : () => message || '';
+      status.textContent = restoreUploadStatusRenderer();
       status.style.color = isError ? 'var(--dialog-danger)' : 'var(--text-secondary)';
     }
 
@@ -108,9 +114,48 @@ export function getBackupCode() {
       return new Promise((resolve, reject) => {
         const reader = new FileReader();
         reader.onload = () => resolve(String(reader.result || ''));
-        reader.onerror = () => reject(reader.error || new Error('读取文件失败'));
+        reader.onerror = () => reject(reader.error || new Error(t('restoreReadFailed')));
         reader.readAsText(file);
       });
+    }
+
+    // Server warnings for an incomplete backup: each one names a skipped entry
+    // and why (the server caps and localizes them). A preview's data.warnings
+    // starts with a summary line that the preview shows separately; the
+    // warnings of a refused restore or export carry only the entries, with the
+    // summary in their message. Rendered as text only.
+    function backupWarningEntries(warnings, startsWithSummary) {
+      if (!Array.isArray(warnings)) return [];
+      return warnings.slice(startsWithSummary ? 1 : 0)
+        .filter(item => typeof item === 'string' && item.trim())
+        .slice(0, 20)
+        .map(item => localizeBackupMessage(item));
+    }
+
+    function backupWarningListHTML(entries) {
+      if (!entries.length) return '';
+      return '<ul class="dialog-warning-list" style="margin: 8px 0 0; padding-left: 20px; text-align: left;">' +
+        entries.map(entry => '<li>' + escapeHTML(entry) + '</li>').join('') +
+        '</ul>';
+    }
+
+    // The server's explanation of a failed backup request with the skipped
+    // entries it lists; its title alone only repeats that the request failed.
+    async function readBackupErrorResponse(response) {
+      let errorData = null;
+      try { errorData = await response.json(); } catch { /* Not a JSON error body. */ }
+      const text = value => typeof value === 'string' ? value.trim() : '';
+      const message = text(errorData && errorData.message) || text(errorData && errorData.error) ||
+        t('serverResponseStatus', { status: response.status });
+      return Object.assign(new Error(message), { warnings: Array.isArray(errorData && errorData.warnings) ? errorData.warnings : [] });
+    }
+
+    // Keeps the reasons of a failed export or restore visible in the preview
+    // (also after a language change) and blocks the same action again.
+    function showBackupActionIssues(backup, label, error) {
+      if (!currentBackupPreview || currentBackupPreview.backup !== backup) return;
+      currentBackupPreview.issues = { label, message: error.message, warnings: error.warnings || [] };
+      renderBackupPreview(currentBackupPreview.backup, currentBackupPreview.data);
     }
 
     function showRestorePreviewMessage(message, className) {
@@ -120,23 +165,31 @@ export function getBackupCode() {
         return;
       }
       previewElement.style.display = 'block';
-      previewContent.innerHTML = '<div class="' + (className || 'loading-backup') + '">' + escapeHTML(message) + '</div>';
+      backupPreviewErrorRenderer = () => {
+        const text = typeof message === 'function' ? message() : localizeBackupMessage(message);
+        previewContent.innerHTML = '<div class="' + (className || 'loading-backup') + '">' + escapeHTML(text) + '</div>';
+      };
+      backupPreviewErrorRenderer();
     }
 
     function resetBackupSelection() {
       backupPreviewRequestToken += 1;
       selectedBackup = null;
+      currentBackupPreview = null;
+      backupPreviewErrorRenderer = null;
       resetRestoreUploadInput();
 
       const confirmRestoreBtn = document.getElementById('confirmRestoreBtn');
       if (confirmRestoreBtn) {
         confirmRestoreBtn.disabled = true;
+        confirmRestoreBtn.removeAttribute('data-i18n-title');
         confirmRestoreBtn.title = '';
       }
 
       const exportBackupBtn = document.getElementById('exportBackupBtn');
       if (exportBackupBtn) {
         exportBackupBtn.disabled = true;
+        exportBackupBtn.removeAttribute('data-i18n-title');
         exportBackupBtn.title = '';
       }
 
@@ -154,9 +207,9 @@ export function getBackupCode() {
         if (backupList.length === 0) {
           statusElement.textContent = '';
         } else if (backupListHasMore) {
-          statusElement.textContent = '已加载 ' + backupList.length + ' 条备份，可继续加载更早记录';
+          statusElement.textContent = t('restoreLoadedMore', { count: backupList.length });
         } else {
-          statusElement.textContent = '已加载全部 ' + backupList.length + ' 条备份';
+          statusElement.textContent = t('restoreLoadedAll', { count: backupList.length });
         }
       }
 
@@ -164,7 +217,9 @@ export function getBackupCode() {
         const shouldShow = backupList.length > 0 && (backupListHasMore || backupListLoading);
         loadMoreBtn.style.display = shouldShow ? '' : 'none';
         loadMoreBtn.disabled = backupListLoading || !backupListHasMore;
-        loadMoreBtn.textContent = backupListLoading ? '加载中...' : '加载更多';
+        const labelKey = backupListLoading ? 'loading' : 'restoreLoadMore';
+        loadMoreBtn.setAttribute('data-i18n', labelKey);
+        loadMoreBtn.textContent = t(labelKey);
       }
     }
 
@@ -206,10 +261,11 @@ export function getBackupCode() {
       }
 
       if (!append) {
+        backupListErrorRenderer = null;
         backupList = [];
         backupListCursor = null;
         backupListHasMore = false;
-        backupSelectElement.innerHTML = '<option value="">正在加载备份列表...</option>';
+        backupSelectElement.innerHTML = '<option value="" data-i18n="restoreLoadingList">' + escapeHTML(t('restoreLoadingList')) + '</option>';
         backupSelectElement.disabled = true;
       }
 
@@ -224,7 +280,7 @@ export function getBackupCode() {
 
         const response = await authenticatedFetch('/api/backup?' + params.toString());
         if (!response.ok) {
-          throw new Error('获取备份列表失败');
+          throw new Error(t('restoreListFailed'));
         }
 
         const data = await response.json();
@@ -234,7 +290,7 @@ export function getBackupCode() {
         backupListHasMore = Boolean(data.pagination && data.pagination.hasMore && data.pagination.cursor);
 
         if (backupList.length === 0) {
-          backupSelectElement.innerHTML = '<option value="">暂无备份文件</option>';
+          backupSelectElement.innerHTML = '<option value="" data-i18n="restoreNoBackups">' + escapeHTML(t('restoreNoBackups')) + '</option>';
           backupSelectElement.disabled = true;
           resetBackupSelection();
           updateBackupListPagination();
@@ -258,11 +314,12 @@ export function getBackupCode() {
         console.error('加载备份列表失败:', error);
 
         if (!append) {
-          backupSelectElement.innerHTML = '<option value="">加载备份列表失败: ' + escapeHTML(error.message) + '</option>';
+          backupListErrorRenderer = () => { backupSelectElement.innerHTML = '<option value="">' + escapeHTML(t('restoreListFailed') + ': ' + localizeBackupMessage(error.message)) + '</option>'; };
+          backupListErrorRenderer();
           backupSelectElement.disabled = true;
           resetBackupSelection();
         } else {
-          showCenterToast('❌', '加载更多备份失败: ' + error.message);
+          showCenterToast('❌', t('restoreMoreFailed') + ': ' + localizeBackupMessage(error.message));
         }
       } finally {
         backupListLoading = false;
@@ -272,29 +329,24 @@ export function getBackupCode() {
 
     function renderBackupSelect(backups, selectedBackupKey = '') {
       const backupSelectElement = document.getElementById('backupSelect');
-      backupSelectElement.innerHTML = '<option value="">请选择备份文件...</option>';
+      backupSelectElement.innerHTML = '<option value="" data-i18n="restoreSelectPlaceholder">' + escapeHTML(t('restoreSelectPlaceholder')) + '</option>';
 
       backups.forEach((backup, index) => {
         // 格式化日期为简洁格式，适配移动设备
         const date = new Date(backup.created);
-        const year = date.getFullYear();
-        const month = String(date.getMonth() + 1).padStart(2, '0');
-        const day = String(date.getDate()).padStart(2, '0');
-        const hours = String(date.getHours()).padStart(2, '0');
-        const minutes = String(date.getMinutes()).padStart(2, '0');
         
         // 移动端优化：格式 "年-月-日 时:分 | 数量个"
         // 例如：2025-11-24 19:50 | 117个
-        const backupTime = year + '-' + month + '-' + day + ' ' + hours + ':' + minutes;
+        const backupTime = formatI18nDate(date, { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' });
         const formatLabel = getBackupExportFormatLabel(getBackupStoredFormat(backup));
-        const optionText = backupTime + ' | ' + formatLabel + ' | ' + (backup.count || 0) + '个';
+        const optionText = backupTime + ' | ' + formatLabel + ' | ' + t('restoreEntryCount', { count: backup.count || 0 });
 
         const option = document.createElement('option');
         option.value = index;
         option.textContent = optionText;
         option.dataset.backupKey = backup.key;
         // 保存完整时间信息在 title 属性中，用于悬停提示
-        option.title = new Date(backup.created).toLocaleString('zh-CN') + ' | ' + formatLabel;
+        option.title = formatI18nDate(backup.created) + ' | ' + formatLabel;
         option.selected = selectedBackupKey === backup.key;
 
         backupSelectElement.appendChild(option);
@@ -330,33 +382,36 @@ export function getBackupCode() {
       const exportBackupBtn = document.getElementById('exportBackupBtn');
 
       selectedBackup = null;
+      currentBackupPreview = null;
       if (backupSelectElement) {
         backupSelectElement.value = '';
       }
       if (confirmRestoreBtn) {
         confirmRestoreBtn.disabled = true;
-        confirmRestoreBtn.title = '正在读取上传的备份文件';
+        confirmRestoreBtn.setAttribute('data-i18n-title', 'restoreReadingFile');
+          confirmRestoreBtn.title = t('restoreReadingFile');
       }
       if (exportBackupBtn) {
         exportBackupBtn.disabled = true;
-        exportBackupBtn.title = '上传的备份文件无需再次导出';
+        exportBackupBtn.setAttribute('data-i18n-title', 'restoreNoUploadExport');
+          exportBackupBtn.title = t('restoreNoUploadExport');
       }
 
       if (!BACKUP_UPLOAD_FILE_REGEX.test(fileName)) {
-        setRestoreUploadStatus('备份文件名格式不正确，请选择 backup_*.(json|txt|csv|html) 文件。', true);
-        showRestorePreviewMessage('无法读取上传文件：备份文件名格式不正确', 'no-backups');
+        setRestoreUploadStatus(() => t('restoreInvalidFileName'), true);
+        showRestorePreviewMessage(() => t('restoreInvalidFileName'), 'no-backups');
         return;
       }
 
       if (file.size > BACKUP_UPLOAD_MAX_BYTES) {
         const maxLabel = formatBackupUploadSize(BACKUP_UPLOAD_MAX_BYTES);
-        setRestoreUploadStatus('备份文件过大，最大支持 ' + maxLabel + '。', true);
-        showRestorePreviewMessage('无法读取上传文件：文件大小超过 ' + maxLabel, 'no-backups');
+        setRestoreUploadStatus(() => t('restoreFileTooLarge', { size: maxLabel }), true);
+        showRestorePreviewMessage(() => t('restoreFileTooLarge', { size: maxLabel }), 'no-backups');
         return;
       }
 
-      setRestoreUploadStatus('正在读取上传文件：' + fileName + '（' + formatBackupUploadSize(file.size) + '）', false);
-      showRestorePreviewMessage('正在读取上传的备份文件...', 'loading-backup');
+      setRestoreUploadStatus(() => t('restoreReadingUpload', { name: fileName, size: formatBackupUploadSize(file.size) }), false);
+      showRestorePreviewMessage(() => t('restoreReadingFile'), 'loading-backup');
 
       try {
         const content = await readRestoreBackupFile(file);
@@ -364,7 +419,7 @@ export function getBackupCode() {
           return;
         }
         if (!content) {
-          throw new Error('备份文件内容为空');
+          throw new Error(t('restoreEmptyFile'));
         }
 
         const uploadedBackup = {
@@ -376,7 +431,7 @@ export function getBackupCode() {
           content
         };
         selectedBackup = uploadedBackup;
-        setRestoreUploadStatus('已选择上传文件：' + fileName + '（' + formatBackupUploadSize(file.size) + '）', false);
+        setRestoreUploadStatus(() => t('restoreSelectedUpload', { name: fileName, size: formatBackupUploadSize(file.size) }), false);
         await showBackupPreview(uploadedBackup, requestToken);
       } catch (error) {
         if (requestToken !== backupPreviewRequestToken) {
@@ -384,28 +439,34 @@ export function getBackupCode() {
         }
         console.error('读取上传备份文件失败:', error);
         selectedBackup = null;
+        currentBackupPreview = null;
         if (confirmRestoreBtn) {
           confirmRestoreBtn.disabled = true;
-          confirmRestoreBtn.title = '上传文件读取失败，无法恢复';
+          confirmRestoreBtn.setAttribute('data-i18n-title', 'restoreReadBlocked');
+          confirmRestoreBtn.title = t('restoreReadBlocked');
         }
-        setRestoreUploadStatus('读取上传备份文件失败：' + error.message, true);
-        showRestorePreviewMessage('读取上传备份文件失败: ' + error.message, 'no-backups');
+        setRestoreUploadStatus(() => t('restoreReadFailed') + ': ' + localizeBackupMessage(error.message), true);
+        showRestorePreviewMessage(() => t('restoreReadFailed') + ': ' + localizeBackupMessage(error.message), 'no-backups');
       }
     }
 
     async function selectBackup(backup, index) {
       selectedBackup = backup;
+      currentBackupPreview = null;
+      backupPreviewErrorRenderer = null;
       const requestToken = ++backupPreviewRequestToken;
       const confirmRestoreBtn = document.getElementById('confirmRestoreBtn');
       const exportBackupBtn = document.getElementById('exportBackupBtn');
 
       if (confirmRestoreBtn) {
         confirmRestoreBtn.disabled = true;
-        confirmRestoreBtn.title = '正在加载备份预览';
+        confirmRestoreBtn.setAttribute('data-i18n-title', 'restoreLoadingPreview');
+          confirmRestoreBtn.title = t('restoreLoadingPreview');
       }
       if (exportBackupBtn) {
         exportBackupBtn.disabled = true;
-        exportBackupBtn.title = '正在加载备份预览';
+        exportBackupBtn.setAttribute('data-i18n-title', 'restoreLoadingPreview');
+          exportBackupBtn.title = t('restoreLoadingPreview');
       }
 
       // 显示备份预览
@@ -413,13 +474,14 @@ export function getBackupCode() {
     }
 
     async function showBackupPreview(backup, requestToken) {
+      backupPreviewErrorRenderer = null;
       const previewElement = document.getElementById('restorePreview');
       const previewContent = document.getElementById('backupPreviewContent');
       const confirmRestoreBtn = document.getElementById('confirmRestoreBtn');
       const exportBackupBtn = document.getElementById('exportBackupBtn');
 
       previewElement.style.display = 'block';
-      previewContent.innerHTML = '<div class="loading-backup">正在加载备份内容...</div>';
+      previewContent.innerHTML = '<div class="loading-backup" data-i18n="restoreLoadingPreview">' + escapeHTML(t('restoreLoadingPreview')) + '</div>';
 
       try {
         const isUploadedBackup = backup && backup.uploaded === true;
@@ -439,11 +501,11 @@ export function getBackupCode() {
         }
 
         if (!response.ok) {
-          const errorData = await response.json();
+          const failure = await readBackupErrorResponse(response);
           if (!isActiveBackupPreviewRequest(backup, requestToken)) {
             return;
           }
-          throw new Error(errorData.message || errorData.error || '获取备份内容失败');
+          throw failure;
         }
 
         const responseData = await response.json();
@@ -452,40 +514,110 @@ export function getBackupCode() {
         }
         const data = responseData.data || responseData; // 兼容不同的响应格式
 
+        currentBackupPreview = { backup, data };
+        renderBackupPreview(backup, data);
+      } catch (error) {
+        if (!isActiveBackupPreviewRequest(backup, requestToken)) {
+          return;
+        }
+        console.error('加载备份预览失败:', error);
+        if (confirmRestoreBtn) {
+          confirmRestoreBtn.disabled = true;
+          confirmRestoreBtn.setAttribute('data-i18n-title', 'restorePreviewBlocked');
+          confirmRestoreBtn.title = t('restorePreviewBlocked');
+        }
+        if (exportBackupBtn) {
+          exportBackupBtn.disabled = true;
+          exportBackupBtn.setAttribute('data-i18n-title', 'restorePreviewBlocked');
+          exportBackupBtn.title = t('restorePreviewBlocked');
+        }
+        backupPreviewErrorRenderer = () => {
+          previewContent.innerHTML = '<div class="no-backups">' + escapeHTML(t('restorePreviewFailed') + ': ' + localizeBackupMessage(error.message)) +
+            backupWarningListHTML(backupWarningEntries(error.warnings, false)) + '</div>';
+          if (confirmRestoreBtn) {
+            confirmRestoreBtn.setAttribute('data-i18n-title', 'restorePreviewBlocked');
+            confirmRestoreBtn.title = t('restorePreviewBlocked');
+          }
+          if (exportBackupBtn) {
+            exportBackupBtn.setAttribute('data-i18n-title', 'restorePreviewBlocked');
+            exportBackupBtn.title = t('restorePreviewBlocked');
+          }
+        };
+        backupPreviewErrorRenderer();
+      }
+    }
+
+    // The label the account card shows, also for older blank names. Display
+    // only: the data itself keeps the stored name.
+    function backupSecretDisplayName(secret) {
+      if (typeof getSecretDisplayName === 'function') return getSecretDisplayName(secret);
+      const name = secret && typeof secret.name === 'string' ? secret.name : '';
+      return name.trim() ? name : t('transferUnnamed');
+    }
+
+    // Accounts the server keeps although their OTP parameters are unsupported.
+    function backupUnsupportedCount(data) {
+      const count = data && data.unsupportedCount;
+      return Number.isSafeInteger(count) && count > 0 ? count : 0;
+    }
+
+    function renderBackupPreview(backup, data) {
+      const isUploadedBackup = backup && backup.uploaded === true;
+      const confirmRestoreBtn = document.getElementById('confirmRestoreBtn');
+      const exportBackupBtn = document.getElementById('exportBackupBtn');
+      const previewContent = document.getElementById('backupPreviewContent');
+      if (!previewContent) return;
         const formatLabel = getBackupExportFormatLabel(getBackupStoredFormat({ format: data.format || backup.format }));
-        const sourceLabel = isUploadedBackup ? '上传文件' : 'KV 备份';
-        const encryptedLabel = data.encrypted ? '已加密' : '明文';
+        const sourceLabel = t(isUploadedBackup ? 'restoreSourceUpload' : 'restoreSourceKV');
+        const encryptedLabel = t(data.encrypted ? 'restoreEncrypted' : 'restorePlaintext');
         const skippedInvalidCount = Number(data.skippedInvalidCount || 0);
         const isPartialBackup = data.partial === true || skippedInvalidCount > 0;
         const hasSecrets = Array.isArray(data.secrets) && data.secrets.length > 0;
         const isEmptyBackup = !isPartialBackup && !hasSecrets && Number(data.count || 0) === 0;
-        const warningMessage =
-          Array.isArray(data.warnings) && data.warnings.length > 0
-            ? data.warnings[0]
-            : (isPartialBackup ? '该备份不完整，无法保证数据完整性。' : '');
-        const emptyBackupMessage = isEmptyBackup ? '该备份不包含可恢复的密钥，已禁止恢复当前数据。' : '';
+        const warningMessage = isPartialBackup ? t('restorePartialWarning', { count: skippedInvalidCount }) : '';
+        const warningDetails = Array.isArray(data.warnings) && data.warnings.length > 0 ? localizeBackupMessage(data.warnings[0]) : '';
+        const warningEntries = backupWarningEntries(data.warnings, true);
+        const issues = currentBackupPreview && currentBackupPreview.backup === backup ? currentBackupPreview.issues : null;
+        const actionIssues = issues
+          ? '<div class="dialog-warning" role="alert">' +
+              dialogIcon('warning') + ' ' + escapeHTML(issues.label() + localizeBackupMessage(issues.message)) +
+              backupWarningListHTML(backupWarningEntries(issues.warnings, false)) +
+            '</div>'
+          : '';
+        const emptyBackupMessage = isEmptyBackup ? t('restoreEmptyWarning') : '';
+        // Kept entries the web app cannot show. They do not block the restore:
+        // the server keeps them unchanged, so nothing is lost.
+        const unsupportedCount = backupUnsupportedCount(data);
+        const previewUnsupported = unsupportedCount > 0
+          ? '<div class="dialog-warning backup-unsupported-notice" role="status">' +
+              dialogIcon('info') + ' ' + escapeHTML(t('restoreUnsupportedNotice', { count: unsupportedCount })) +
+              backupWarningListHTML(backupWarningEntries(data.unsupportedWarnings, false)) +
+            '</div>'
+          : '';
         const previewSummary =
           '<dl class="dialog-backup-summary">' +
             '<div>' +
-              '<dt>备份格式</dt>' +
+              '<dt data-i18n="restoreFormatLabel">' + escapeHTML(t('restoreFormatLabel')) + '</dt>' +
               '<dd>' + escapeHTML(formatLabel) + '</dd>' +
             '</div>' +
             '<div>' +
-              '<dt>备份条目</dt>' +
-              '<dd>' + (data.count || 0) + ' 个</dd>' +
+              '<dt data-i18n="restoreCountLabel">' + escapeHTML(t('restoreCountLabel')) + '</dt>' +
+              '<dd>' + escapeHTML(t('restoreEntryCount', { count: data.count || 0 })) + '</dd>' +
             '</div>' +
             '<div>' +
-              '<dt>存储状态</dt>' +
+              '<dt data-i18n="restoreStorageLabel">' + escapeHTML(t('restoreStorageLabel')) + '</dt>' +
               '<dd>' + encryptedLabel + '</dd>' +
             '</div>' +
             '<div>' +
-              '<dt>恢复来源</dt>' +
+              '<dt data-i18n="restoreSourceLabel">' + escapeHTML(t('restoreSourceLabel')) + '</dt>' +
               '<dd>' + escapeHTML(sourceLabel) + '</dd>' +
             '</div>' +
           '</dl>';
         const previewWarning = isPartialBackup
           ? '<div class="dialog-warning" role="status">' +
               dialogIcon('warning') + ' ' + escapeHTML(warningMessage) +
+              (warningDetails ? '<p>' + escapeHTML(warningDetails) + '</p>' : '') +
+              backupWarningListHTML(warningEntries) +
             '</div>'
           : '';
         const previewEmptyWarning = isEmptyBackup
@@ -494,34 +626,38 @@ export function getBackupCode() {
             '</div>'
           : '';
 
-        if (confirmRestoreBtn) {
-          confirmRestoreBtn.disabled = isPartialBackup || isEmptyBackup;
+        if (confirmRestoreBtn && confirmRestoreBtn.getAttribute('data-i18n') !== 'restoreInProgress') {
+          confirmRestoreBtn.removeAttribute('data-i18n-title');
+          confirmRestoreBtn.disabled = isPartialBackup || isEmptyBackup || Boolean(issues && issues.warnings.length);
           confirmRestoreBtn.title = isPartialBackup ? warningMessage : (isEmptyBackup ? emptyBackupMessage : '');
         }
         if (exportBackupBtn) {
-          exportBackupBtn.disabled = isUploadedBackup || isPartialBackup;
-          exportBackupBtn.title = isUploadedBackup ? '上传的备份文件无需再次导出' : (isPartialBackup ? warningMessage : '');
+          exportBackupBtn.removeAttribute('data-i18n-title');
+          exportBackupBtn.disabled = isUploadedBackup || isPartialBackup || Boolean(issues && issues.warnings.length);
+          exportBackupBtn.title = isUploadedBackup ? t('restoreNoUploadExport') : (isPartialBackup ? warningMessage : '');
         }
 
         if (hasSecrets) {
           previewContent.innerHTML =
             previewSummary +
+            actionIssues +
             previewWarning +
+            previewUnsupported +
             previewEmptyWarning +
             '<div class="backup-table-container">' +
               '<table class="backup-table">' +
                 '<thead>' +
                   '<tr>' +
-                    '<th>服务名称</th>' +
-                    '<th>账户信息</th>' +
-                    '<th>类型</th>' +
+                    '<th data-i18n="restoreServiceLabel">' + escapeHTML(t('restoreServiceLabel')) + '</th>' +
+                    '<th data-i18n="restoreAccountLabel">' + escapeHTML(t('restoreAccountLabel')) + '</th>' +
+                    '<th data-i18n="restoreTypeLabel">' + escapeHTML(t('restoreTypeLabel')) + '</th>' +
                   '</tr>' +
                 '</thead>' +
                 '<tbody>' +
                   data.secrets.map(secret =>
                     '<tr class="backup-table-row">' +
-                      '<td class="service-name">' + escapeHTML(secret.name || '') + '</td>' +
-                      '<td class="account-info">' + escapeHTML(secret.account || secret.service || '无账户信息') + '</td>' +
+                      '<td class="service-name">' + escapeHTML(backupSecretDisplayName(secret)) + '</td>' +
+                      '<td class="account-info">' + escapeHTML(secret.account || secret.service || t('restoreNoAccount')) + '</td>' +
                       '<td class="secret-type">' + escapeHTML(secret.type || 'TOTP') + '</td>' +
                     '</tr>'
                   ).join('') +
@@ -529,37 +665,38 @@ export function getBackupCode() {
               '</table>' +
             '</div>';
         } else {
-          previewContent.innerHTML = previewSummary + previewWarning + previewEmptyWarning + '<div class="no-backups">此备份中没有密钥</div>';
+          previewContent.innerHTML = previewSummary + actionIssues + previewWarning + previewUnsupported + previewEmptyWarning + '<div class="no-backups" data-i18n="restoreNoKeys">' + escapeHTML(t('restoreNoKeys')) + '</div>';
         }
-      } catch (error) {
-        if (!isActiveBackupPreviewRequest(backup, requestToken)) {
-          return;
-        }
-        console.error('加载备份预览失败:', error);
-        if (confirmRestoreBtn) {
-          confirmRestoreBtn.disabled = true;
-          confirmRestoreBtn.title = '当前备份预览加载失败，无法恢复';
-        }
-        if (exportBackupBtn) {
-          exportBackupBtn.disabled = true;
-          exportBackupBtn.title = '当前备份预览加载失败，无法导出';
-        }
-        previewContent.innerHTML = '<div class="no-backups">加载备份预览失败: ' + escapeHTML(error.message) + '</div>';
+    }
+
+    function refreshBackupTranslations() {
+      if (typeof getCachedDefaultExportFormat === 'function') updateBackupDefaultExportButton();
+      updateBackupListPagination();
+      if (backupListErrorRenderer) backupListErrorRenderer();
+      if (backupPreviewErrorRenderer) backupPreviewErrorRenderer();
+      const uploadStatus = document.getElementById('restoreUploadStatus');
+      if (uploadStatus && restoreUploadStatusRenderer) uploadStatus.textContent = restoreUploadStatusRenderer();
+      if (backupList.length && document.getElementById('backupSelect')) {
+        renderBackupSelect(backupList, selectedBackup?.key || '');
+      }
+      if (currentBackupPreview && selectedBackup?.key === currentBackupPreview.backup.key) {
+        renderBackupPreview(currentBackupPreview.backup, currentBackupPreview.data);
       }
     }
 
     async function confirmRestore() {
       if (!selectedBackup) {
-        showCenterToast('❌', '请先选择一个备份文件');
+        showCenterToast('❌', t('restoreChooseFirst'));
         return;
       }
 
       const backupLabel = selectedBackup.key.replace('backup_', '').replace(/\\.(json|txt|csv|html)$/i, '');
       const confirmed = await showConfirmDialog({
-        title: '还原备份',
-        message: '确定要还原备份 "' + backupLabel + '" 吗？\\n此操作将覆盖当前所有密钥，且无法撤销。',
-        confirmText: '还原',
-        cancelText: '取消',
+        i18n: { title: 'restoreConfirmTitle', message: 'restoreConfirmMessage', confirmText: 'restoreAction', cancelText: 'cancel', params: { name: backupLabel } },
+        title: t('restoreConfirmTitle'),
+        message: t('restoreConfirmMessage', { name: backupLabel }),
+        confirmText: t('restoreAction'),
+        cancelText: t('cancel'),
         danger: true
       });
 
@@ -568,8 +705,10 @@ export function getBackupCode() {
       }
 
       const confirmBtn = document.getElementById('confirmRestoreBtn');
-      const originalText = confirmBtn.textContent;
-      confirmBtn.textContent = '还原中...';
+      const restoredBackup = selectedBackup;
+      let restoreIssues = null;
+      confirmBtn.setAttribute('data-i18n', 'restoreInProgress');
+      confirmBtn.textContent = t('restoreInProgress');
       confirmBtn.disabled = true;
 
       try {
@@ -585,36 +724,43 @@ export function getBackupCode() {
         });
 
         if (!response.ok) {
-          const errorData = await response.json();
-          throw new Error(errorData.message || errorData.error || '还原失败');
+          throw await readBackupErrorResponse(response);
         }
 
         const result = await response.json();
-        showCenterToast('✅', '还原成功！恢复了 ' + result.count + ' 个密钥');
+        const unsupported = backupUnsupportedCount(result);
+        showCenterToast('✅', unsupported > 0
+          ? t('restoreCompletedWithUnsupported', { count: result.count, unsupported })
+          : t('restoreCompleted', { count: result.count }));
 
-        // 关闭模态框并刷新页面
+        // 关闭模态框并刷新页面；the longer note about kept entries needs time to be read.
         hideRestoreModal();
         setTimeout(() => {
           location.reload();
-        }, 1000);
+        }, unsupported > 0 ? 4000 : 1000);
 
       } catch (error) {
         console.error('还原失败:', error);
-        showCenterToast('❌', '还原失败: ' + error.message);
+        showCenterToast('❌', t('restoreFailed') + ': ' + localizeBackupMessage(error.message));
+        restoreIssues = error;
       } finally {
-        confirmBtn.textContent = originalText;
+        confirmBtn.setAttribute('data-i18n', 'restoreConfirm');
+        confirmBtn.textContent = t('restoreConfirm');
         confirmBtn.disabled = false;
+        if (restoreIssues && Array.isArray(restoreIssues.warnings) && restoreIssues.warnings.length) {
+          showBackupActionIssues(restoredBackup, () => t('restoreFailed') + ': ', restoreIssues);
+        }
       }
     }
 
     // 显示备份导出格式选择模态框
     function exportSelectedBackup() {
       if (!selectedBackup) {
-        showCenterToast('❌', '请先选择一个备份文件');
+        showCenterToast('❌', t('restoreChooseFirst'));
         return;
       }
       if (selectedBackup.uploaded === true) {
-        showCenterToast('ℹ️', '上传的备份文件无需再次导出');
+        showCenterToast('ℹ️', t('restoreNoUploadExport'));
         return;
       }
 
@@ -647,19 +793,19 @@ export function getBackupCode() {
 
     async function executeBackupExport(format) {
       if (!selectedBackup) {
-        showCenterToast('❌', '请先选择一个备份文件');
+        showCenterToast('❌', t('restoreChooseFirst'));
         return;
       }
+      const exportedBackup = selectedBackup;
 
       try {
-        showCenterToast('ℹ️', '正在导出备份文件...');
+        showCenterToast('ℹ️', t('transferExportingBackup'));
 
-        const exportUrl = '/api/backup/export/' + selectedBackup.key + '?format=' + format;
+        const exportUrl = '/api/backup/export/' + selectedBackup.key + '?format=' + format + '&language=' + encodeURIComponent(getLanguage());
         const response = await authenticatedFetch(exportUrl);
 
         if (!response.ok) {
-          const errorData = await response.json();
-          throw new Error(errorData.error || '导出失败');
+          throw await readBackupErrorResponse(response);
         }
 
         const contentDisposition = response.headers.get('Content-Disposition');
@@ -682,16 +828,19 @@ export function getBackupCode() {
         window.URL.revokeObjectURL(url);
 
         const formatNames = {
-          'txt': 'OTPAuth 文本',
-          'json': 'JSON 数据',
-          'csv': 'CSV 表格',
+          'txt': t('transferOTPAuthText'),
+          'json': t('transferJSONData'),
+          'csv': t('transferCSVTable'),
           'html': 'HTML'
         };
         const formatName = formatNames[format] || format.toUpperCase();
-        showCenterToast('✅', '备份文件已导出为 ' + formatName + ' 格式！');
+        showCenterToast('✅', t('transferBackupExported', { format: formatName }));
       } catch (error) {
         console.error('导出备份失败:', error);
-        showCenterToast('❌', '导出失败: ' + error.message);
+        showCenterToast('❌', t('transferExportFailedPrefixASCII') + localizeBackupMessage(error.message));
+        if (Array.isArray(error.warnings) && error.warnings.length) {
+          showBackupActionIssues(exportedBackup, () => t('transferExportFailedPrefixASCII'), error);
+        }
       }
     }
 `;

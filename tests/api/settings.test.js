@@ -4,6 +4,7 @@
 
 import { beforeEach, describe, expect, it } from 'vitest';
 
+import { LANGUAGE_PREFERENCES } from '../../src/shared/languages.js';
 import { handleGetSettings, handleSaveSettings } from '../../src/api/settings.js';
 
 class MockKV {
@@ -65,6 +66,7 @@ describe('Settings API', () => {
 			expect(data.jwtExpiryDays).toBe(30);
 			expect(data.maxBackups).toBe(100);
 			expect(data.defaultExportFormat).toBe('json');
+			expect(data).not.toHaveProperty('language');
 		});
 
 		it('merges saved settings with defaults', async () => {
@@ -76,6 +78,13 @@ describe('Settings API', () => {
 			expect(data.maxBackups).toBe(50);
 			expect(data.jwtExpiryDays).toBe(30);
 			expect(data.defaultExportFormat).toBe('txt');
+			expect(data).not.toHaveProperty('language');
+		});
+
+		it.each(['auto', 'en', 'zh-TW'])('preserves explicitly saved language %s', async (language) => {
+			await env.SECRETS_KV.put('settings', JSON.stringify({ language }));
+			const resp = await handleGetSettings(createGetRequest(), env);
+			expect((await resp.json()).language).toBe(language);
 		});
 
 		it('sanitizes invalid stored defaultExportFormat values on read', async () => {
@@ -276,7 +285,17 @@ describe('Settings API', () => {
 	});
 
 	describe('handleSaveSettings - language validation', () => {
-		it.each(['auto', 'zh-TW', 'zh-CN', 'en'])('accepts %s', async (lang) => {
+		it('does not turn an unset language into an explicit auto preference when saving another setting', async () => {
+			const saved = await handleSaveSettings(createMockRequest({ maxBackups: 20 }), env);
+			expect((await saved.json()).settings).not.toHaveProperty('language');
+			expect(JSON.parse(await env.SECRETS_KV.get('settings'))).not.toHaveProperty('language');
+			const resp = await handleGetSettings(createGetRequest(), env);
+			const data = await resp.json();
+			expect(data.maxBackups).toBe(20);
+			expect(data).not.toHaveProperty('language');
+		});
+
+		it.each(LANGUAGE_PREFERENCES)('accepts %s', async (lang) => {
 			const resp = await handleSaveSettings(createMockRequest({ language: lang }), env);
 			const data = await resp.json();
 
@@ -289,11 +308,11 @@ describe('Settings API', () => {
 		});
 
 		it('rejects unsupported languages', async () => {
-			const resp = await handleSaveSettings(createMockRequest({ language: 'fr' }), env);
+			const resp = await handleSaveSettings(createMockRequest({ language: 'unsupported' }), env);
 			const data = await resp.json();
 
 			expect(resp.status).toBe(400);
-			expect(data.message).toBe('语言偏好仅支持：auto, zh-TW, zh-CN, en');
+			expect(data.message).toBe(`语言偏好仅支持：${LANGUAGE_PREFERENCES.join(', ')}`);
 		});
 
 		it('rejects non-string values', async () => {

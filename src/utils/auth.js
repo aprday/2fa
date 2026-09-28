@@ -4,9 +4,11 @@
  */
 
 import { createErrorResponse } from './response.js';
+import { getLanguageHeaders, localizeResponseData } from './i18n.js';
 import { checkRateLimit, createRateLimitResponse, getClientIdentifier, RATE_LIMIT_PRESETS } from './rateLimit.js';
 import { getAllowedOrigin, getSecurityHeaders } from './security.js';
 import { getLogger } from './logger.js';
+import { getSettings, KV_SETTINGS_KEY, sanitizeLanguage, VALID_LANGUAGES } from './settings.js';
 import {
 	ValidationError,
 	AuthenticationError,
@@ -28,7 +30,6 @@ const COOKIE_NAME = 'auth_token';
 // KV 存储键
 const KV_USER_PASSWORD_KEY = 'user_password';
 const KV_SETUP_COMPLETED_KEY = 'setup_completed';
-const KV_SETTINGS_KEY = 'settings';
 
 /**
  * 获取 JWT 过期天数（从 KV settings 读取）
@@ -567,7 +568,7 @@ export async function handleFirstTimeSetup(request, env) {
 			return createRateLimitResponse(rateLimitInfo, request);
 		}
 
-		const { password, confirmPassword } = await request.json();
+		const { password, confirmPassword, language } = await request.json();
 
 		// 验证密码
 		if (!password || !confirmPassword) {
@@ -600,8 +601,22 @@ export async function handleFirstTimeSetup(request, env) {
 			});
 		}
 
+		if (language !== undefined && (typeof language !== 'string' || !VALID_LANGUAGES.includes(language.trim()))) {
+			throw new ValidationError('无效的语言设置', {
+				field: 'language',
+				allowedValues: VALID_LANGUAGES,
+			});
+		}
+
 		// 加密密码（内部会再次验证密码强度）
 		const passwordHash = await hashPassword(password);
+
+		// 先保存语言，确保设置写入失败时仍可重试首次设置；旧客户端不修改已有偏好。
+		if (language !== undefined) {
+			const settings = await getSettings(env, { omitUnsetLanguage: true });
+			settings.language = sanitizeLanguage(language);
+			await env.SECRETS_KV.put(KV_SETTINGS_KEY, JSON.stringify(settings));
+		}
 
 		// 存储到 KV
 		await env.SECRETS_KV.put(KV_USER_PASSWORD_KEY, passwordHash);
@@ -629,17 +644,23 @@ export async function handleFirstTimeSetup(request, env) {
 		const securityHeaders = getSecurityHeaders(request);
 
 		return new Response(
-			JSON.stringify({
-				success: true,
-				message: '密码设置成功，已自动登录',
-				expiresAt: expiryDate.toISOString(),
-				expiresIn: `${jwtExpiryDays}天`,
-			}),
+			JSON.stringify(
+				localizeResponseData(
+					{
+						success: true,
+						message: '密码设置成功，已自动登录',
+						expiresAt: expiryDate.toISOString(),
+						expiresIn: `${jwtExpiryDays}天`,
+					},
+					request,
+				),
+			),
 			{
 				status: 200,
 				headers: {
 					...securityHeaders,
 					'Content-Type': 'application/json',
+					...getLanguageHeaders(request),
 					'Set-Cookie': createSetCookieHeader(jwtToken, jwtExpiryDays * 24 * 60 * 60),
 					'X-RateLimit-Limit': rateLimitInfo.limit.toString(),
 					'X-RateLimit-Remaining': rateLimitInfo.remaining.toString(),
@@ -748,18 +769,24 @@ export async function handleLogin(request, env) {
 		const securityHeaders = getSecurityHeaders(request);
 
 		return new Response(
-			JSON.stringify({
-				success: true,
-				message: '登录成功',
-				token: jwtToken, // 同时在响应 body 中返回 token（供测试和客户端使用）
-				expiresAt: expiryDate.toISOString(),
-				expiresIn: `${jwtExpiryDays}天`,
-			}),
+			JSON.stringify(
+				localizeResponseData(
+					{
+						success: true,
+						message: '登录成功',
+						token: jwtToken, // 同时在响应 body 中返回 token（供测试和客户端使用）
+						expiresAt: expiryDate.toISOString(),
+						expiresIn: `${jwtExpiryDays}天`,
+					},
+					request,
+				),
+			),
 			{
 				status: 200,
 				headers: {
 					...securityHeaders,
 					'Content-Type': 'application/json',
+					...getLanguageHeaders(request),
 					'Set-Cookie': createSetCookieHeader(jwtToken, jwtExpiryDays * 24 * 60 * 60),
 					'X-RateLimit-Limit': rateLimitInfo.limit.toString(),
 					'X-RateLimit-Remaining': rateLimitInfo.remaining.toString(),
@@ -856,18 +883,24 @@ export async function handleRefreshToken(request, env) {
 		const securityHeaders = getSecurityHeaders(request);
 
 		return new Response(
-			JSON.stringify({
-				success: true,
-				message: '令牌刷新成功',
-				token: newToken, // 同时在响应 body 中返回 token（供测试和客户端使用）
-				expiresAt: expiryDate.toISOString(),
-				expiresIn: `${jwtExpiryDays}天`,
-			}),
+			JSON.stringify(
+				localizeResponseData(
+					{
+						success: true,
+						message: '令牌刷新成功',
+						token: newToken, // 同时在响应 body 中返回 token（供测试和客户端使用）
+						expiresAt: expiryDate.toISOString(),
+						expiresIn: `${jwtExpiryDays}天`,
+					},
+					request,
+				),
+			),
 			{
 				status: 200,
 				headers: {
 					...securityHeaders, // 🔒 包含 CORS, CSP 等安全头
 					'Content-Type': 'application/json',
+					...getLanguageHeaders(request),
 					// 🍪 设置新的 HttpOnly Cookie
 					'Set-Cookie': createSetCookieHeader(newToken, jwtExpiryDays * 24 * 60 * 60),
 				},
@@ -920,15 +953,21 @@ export async function handleLogout(request, env) {
 	}
 
 	return new Response(
-		JSON.stringify({
-			success: true,
-			message: '已退出登录',
-		}),
+		JSON.stringify(
+			localizeResponseData(
+				{
+					success: true,
+					message: '已退出登录',
+				},
+				request,
+			),
+		),
 		{
 			status: 200,
 			headers: {
 				...getSecurityHeaders(request),
 				'Content-Type': 'application/json',
+				...getLanguageHeaders(request),
 				'Cache-Control': 'no-store',
 				'Set-Cookie': createClearCookieHeader(),
 			},

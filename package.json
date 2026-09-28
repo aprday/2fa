@@ -1,6 +1,6 @@
 {
   "name": "2fa",
-  "version": "1.9.0",
+  "version": "1.10.0",
   "type": "module",
   "private": true,
   "description": "2FA - OTP Generator using Cloudflare Workers",
@@ -9,17 +9,23 @@
     "deploy:git": "node scripts/deploy.js --git",
     "deploy:package": "node scripts/deploy.js --package",
     "deploy:dev": "node scripts/deploy.js --env development",
-    "deploy:direct": "wrangler deploy",
+    "deploy:direct": "node scripts/deploy.js",
     "dev": "wrangler dev --env development",
     "start": "wrangler dev --env development",
     "build": "node scripts/build-release.js",
     "build:minify": "node scripts/build-release.js --minify",
+    "build:extension": "node scripts/build-extension.js",
+    "icons:extension": "node scripts/generate-extension-icons.js",
+    "package:extension": "node scripts/package-extensions.js",
     "test": "vitest",
+    "test:extension": "vitest run tests/extension",
+    "test:extension:coverage": "vitest run --config vitest.extension.config.js --coverage",
+    "test:extension:e2e": "npm run build:extension && playwright test --config tests/extension/playwright.config.js",
     "test:watch": "vitest --watch",
     "test:ui": "vitest --ui",
     "test:coverage": "vitest --coverage",
-    "lint": "eslint src/ tests/ --max-warnings=0",
-    "lint:fix": "eslint src/ tests/ --fix --max-warnings=0",
+    "lint": "eslint src/ extension/src/ tests/ scripts/ --max-warnings=0",
+    "lint:fix": "eslint src/ extension/src/ tests/ scripts/ --fix --max-warnings=0",
     "format": "prettier --write \"src/**/*.js\"",
     "format:check": "prettier --check \"src/**/*.js\"",
     "release:patch": "node scripts/release.js patch",
@@ -33,7 +39,14 @@
       "eslint --fix --max-warnings=0",
       "prettier --write"
     ],
+    "extension/src/**/*.js": [
+      "eslint --fix --max-warnings=0",
+      "prettier --write"
+    ],
     "tests/**/*.js": [
+      "eslint --fix --max-warnings=0"
+    ],
+    "scripts/**/*.js": [
       "eslint --fix --max-warnings=0"
     ],
     "*.md": [
@@ -47,13 +60,16 @@
   "devDependencies": {
     "@cloudflare/workers-types": "^4.20251014.0",
     "@eslint/js": "^9.18.0",
+    "@playwright/test": "^1.63.0",
     "@vitest/coverage-v8": "^4.0.5",
     "@vitest/ui": "^4.0.5",
     "esbuild": "^0.25.0",
     "eslint": "^9.18.0",
+    "happy-dom": "^20.14.5",
     "husky": "^9.1.7",
     "lint-staged": "^15.3.0",
     "prettier": "^3.4.2",
+    "smol-toml": "^1.8.0",
     "vitest": "^4.0.5",
     "wrangler": "^4.78.0"
   },

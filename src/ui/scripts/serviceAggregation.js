@@ -1,13 +1,7 @@
-/**
- * Service identity and automatic aggregation module.
- */
-
+import { createServiceAggregation } from '../../shared/service-aggregation.js';
 import { SERVICE_FAMILY_ALIASES, SERVICE_FAMILY_NAMES, SERVICE_FUZZY_MATCH_KEYS } from '../config/serviceLogos.js';
 
-/**
- * Get client-side service aggregation code.
- * @returns {string} JavaScript code
- */
+/** Emit the self-contained shared closure with stable browser bindings. */
 export function getServiceAggregationCode() {
 	const familyAliasesJSON = JSON.stringify(SERVICE_FAMILY_ALIASES, null, 2);
 	const familyNamesJSON = JSON.stringify(SERVICE_FAMILY_NAMES, null, 2);

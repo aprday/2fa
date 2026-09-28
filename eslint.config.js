@@ -83,6 +83,11 @@ export default [
 		},
 	},
 	{
+		// JSON import attributes are bundled away for the browser/Worker targets.
+		files: ['src/shared/locales/index.js'],
+		languageOptions: { ecmaVersion: 2025 },
+	},
+	{
 		files: ['tests/**/*.js'],
 		languageOptions: {
 			globals: {
@@ -94,6 +99,33 @@ export default [
 		},
 		rules: {
 			'no-unused-vars': ['error', { args: 'none', varsIgnorePattern: '^_' }],
+		},
+	},
+	{
+		files: ['extension/**/*.js'],
+		languageOptions: {
+			globals: {
+				chrome: 'readonly',
+				performance: 'readonly',
+			},
+		},
+	},
+	{
+		files: ['scripts/**/*.js'],
+		languageOptions: {
+			globals: {
+				process: 'readonly',
+				Buffer: 'readonly',
+			},
+		},
+	},
+	{
+		files: ['tests/extension/**/*.js'],
+		languageOptions: {
+			globals: {
+				chrome: 'readonly',
+				structuredClone: 'readonly',
+			},
 		},
 	},
 	{

@@ -3,12 +3,16 @@
  * 包含搜索和排序密钥的功能
  */
 
+import { getSearchFilterCode } from './searchFilter.js';
+
 /**
  * 获取搜索和排序相关代码
  * @returns {string} 搜索 JavaScript 代码
  */
 export function getSearchCode() {
 	return `    // ========== 搜索和排序模块 ==========
+
+    ${getSearchFilterCode()}
 
     // 排序和显示模式相关变量
     let currentSortType = 'oldest-first';
@@ -109,7 +113,9 @@ export function getSearchCode() {
 
       const sortModeLabel = document.getElementById('sortModeLabel');
       if (sortModeLabel) {
-        sortModeLabel.textContent = isGrouped ? '组内排序' : '列表排序';
+        const labelKey = isGrouped ? 'sortModeLabel' : 'sortModeFlatLabel';
+        sortModeLabel.setAttribute('data-i18n', labelKey);
+        sortModeLabel.textContent = typeof t === 'function' ? t(labelKey) : (isGrouped ? '组内排序' : '列表排序');
       }
       scheduleSortMenuPlacementUpdate();
     }
@@ -348,29 +354,13 @@ export function getSearchCode() {
       }
 
       if (!trimmedQuery) {
-        filteredSecrets = [...secrets];
+        filteredSecrets = filterAccountsByQuery(secrets, trimmedQuery);
         searchStats.textContent = '';
         await renderFilteredSecrets();
         return;
       }
 
-      const { familyMetadata, identityBySecret } = getServiceFamilyMetadata(secrets);
-      const searchableFamilyNames = new Map();
-      familyMetadata.forEach((metadata, key) => {
-        if (metadata.totalCount >= 2) {
-          searchableFamilyNames.set(key, resolveServiceGroupName(metadata).toLowerCase());
-        } else {
-          searchableFamilyNames.set(key, ((typeof t === 'function' ? t('otherServices') : null) || '其他服务').toLowerCase());
-        }
-      });
-
-      filteredSecrets = secrets.filter(secret => {
-        const serviceName = secret.name.toLowerCase();
-        const accountName = (secret.account || '').toLowerCase();
-        const identity = secret && typeof secret === 'object' ? identityBySecret.get(secret) : null;
-        const familyName = identity ? searchableFamilyNames.get(identity.key) || '' : '';
-        return serviceName.includes(trimmedQuery) || accountName.includes(trimmedQuery) || familyName.includes(trimmedQuery);
-      });
+      filteredSecrets = filterAccountsByQuery(secrets, trimmedQuery);
 
       const totalCount = secrets.length;
       const foundCount = filteredSecrets.length;
