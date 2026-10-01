@@ -21,8 +21,7 @@ vi.mock('../../extension/src/background/workflow.js', () => ({
 }));
 
 const SOURCE = 'https://vault.example';
-// An HTTPS private host keeps exact-port scope; plain HTTP network pages are manual-only.
-const TARGET = 'https://172.16.0.10:8080';
+const TARGET = 'http://172.16.0.10:8080';
 const PATH = '/login';
 const KEY = 'autofillAuthorization';
 let api;
@@ -79,6 +78,100 @@ afterEach(() => {
 	delete globalThis.chrome;
 });
 
+describe('site-wide grants asked for in the popup', () => {
+	const ACCOUNT = { id: 'github', name: 'GitHub', account: 'alice@example.com', type: 'TOTP', digits: 6 };
+	function siteMessage(extra = {}) {
+		return { ...message, targetPath: '*', pagePath: PATH, ...extra };
+	}
+	beforeEach(() => {
+		enable.mockImplementation(async (intent, guard) => {
+			await guard();
+			sites = [{ instanceOrigin: intent.instanceOrigin, targetOrigin: intent.targetOrigin, targetPath: '*', pagePath: intent.pagePath }];
+			return { instanceOrigin: intent.instanceOrigin, sites };
+		});
+	});
+
+	it('keeps the page the grant is made on and checks that page, not the marker', async () => {
+		expect(await api.beginAutofillAuthorization(siteMessage(), generation, enable)).toMatchObject({ status: 'pending' });
+		expect(values[KEY]).toEqual({
+			requestId: message.requestId,
+			instanceOrigin: SOURCE,
+			mode: 'offline',
+			targetOrigin: TARGET,
+			targetPath: '*',
+			pagePath: PATH,
+			expectedTarget: message.expectedTarget,
+			createdAt: expect.any(Number),
+			status: 'pending',
+		});
+		granted = true;
+		expect(await api.completeAutofillAuthorization(undefined, enable)).toMatchObject({ status: 'enabled', sites });
+		expect(enable).toHaveBeenCalledExactlyOnceWith(
+			expect.objectContaining({ targetPath: '*', pagePath: PATH, enabled: true, expectedTarget: message.expectedTarget }),
+			expect.any(Function),
+		);
+		expect(mocks.sendDocumentMessage).toHaveBeenLastCalledWith(7, 'document-7', expect.any(Object), 'TARGET_CHANGED');
+	});
+
+	it.each([
+		['without a page', { pagePath: undefined }],
+		['with the marker as its page', { pagePath: '*' }],
+		['with a page other than the expected target', { pagePath: '/settings' }],
+		['with a noncanonical page', { pagePath: '/login?token=secret' }],
+	])('rejects a site-wide request %s before saving an intent', async (_label, change) => {
+		await expect(api.beginAutofillAuthorization(siteMessage(change), generation, enable)).rejects.toMatchObject({
+			code: 'INVALID_REQUEST',
+		});
+		expect(values[KEY]).toBeUndefined();
+	});
+
+	it('rejects a site-wide request after the tab left the page it was asked on', async () => {
+		chrome.tabs.get.mockResolvedValue({ id: 7, url: `${TARGET}/settings` });
+		await expect(api.beginAutofillAuthorization(siteMessage(), generation, enable)).rejects.toMatchObject({ code: 'TARGET_CHANGED' });
+		expect(values[KEY]).toBeUndefined();
+	});
+
+	it('does not count a page grant of the origin as the enabled site-wide grant', async () => {
+		granted = true;
+		await api.beginAutofillAuthorization(siteMessage(), generation, enable);
+		sites = [{ instanceOrigin: SOURCE, targetOrigin: TARGET, targetPath: PATH }];
+		await expect(api.completeAutofillAuthorization(message.requestId, enable)).rejects.toMatchObject({ code: 'REQUEST_EXPIRED' });
+	});
+
+	it('keeps only the id of the account a popup fill asks to remember', async () => {
+		await api.beginAutofillAuthorization(siteMessage({ rememberAccount: ACCOUNT }), generation, enable);
+		expect(values[KEY]).toMatchObject({ rememberAccountId: 'github' });
+		expect(JSON.stringify(values[KEY])).not.toContain('alice@example.com');
+		expect(JSON.stringify(values[KEY])).not.toContain('GitHub');
+		granted = true;
+		await api.completeAutofillAuthorization(undefined, enable);
+		expect(enable).toHaveBeenCalledWith(expect.objectContaining({ rememberAccountId: 'github' }), expect.any(Function));
+	});
+
+	it('also keeps the login email where the website tells accounts apart by it', async () => {
+		const google = 'https://accounts.google.com';
+		chrome.tabs.get.mockResolvedValue({ id: 7, url: `${google}/login` });
+		mocks.sendDocumentMessage.mockResolvedValue({ ok: true, origin: google, targetPath: PATH });
+		const request = siteMessage({
+			targetOrigin: google,
+			expectedTarget: { ...message.expectedTarget, origin: google },
+			rememberAccount: { ...ACCOUNT, name: 'Google' },
+		});
+		await api.beginAutofillAuthorization(request, generation, enable);
+		expect(values[KEY]).toMatchObject({ rememberAccountId: 'github', rememberAccountEmail: 'alice@example.com' });
+	});
+
+	it.each([null, 'github', { id: 'github' }, { ...ACCOUNT, type: 'HOTP' }])(
+		'rejects an invalid account to remember: %j',
+		async (account) => {
+			await expect(api.beginAutofillAuthorization(siteMessage({ rememberAccount: account }), generation, enable)).rejects.toMatchObject({
+				code: 'INVALID_REQUEST',
+			});
+			expect(values[KEY]).toBeUndefined();
+		},
+	);
+});
+
 describe('background-owned automatic-fill permission intent', () => {
 	it.each([undefined, null, '', 'login', '/login?token=secret'])(
 		'rejects a missing or noncanonical path before saving an intent: %s',
@@ -91,19 +184,21 @@ describe('background-owned automatic-fill permission intent', () => {
 		},
 	);
 
-	it.each(['http://172.16.0.10:8080', 'http://192.168.1.1', 'http://10.0.0.1:8443'])(
-		'refuses to save an automatic-fill intent for the plain-HTTP network page %s',
+	it.each(['http://172.16.0.10:8080', 'http://192.168.1.1', 'http://10.0.0.1:8443', 'http://login.example', 'https://login.example'])(
+		'authorizes automatic filling on %s after its browser permission is granted',
 		async (origin) => {
 			message.targetOrigin = origin;
 			message.expectedTarget.origin = origin;
 			chrome.tabs.get.mockResolvedValue({ id: 7, url: `${origin}/login` });
 			mocks.sendDocumentMessage.mockResolvedValue({ ok: true, origin, targetPath: PATH });
-			granted = true;
-			await expect(api.beginAutofillAuthorization(message, generation, enable)).rejects.toMatchObject({
-				messageKey: 'error_AUTOFILL_ORIGIN_PROTOCOL',
+			expect(await api.beginAutofillAuthorization(message, generation, enable)).toMatchObject({
+				status: 'pending',
 			});
-			expect(values[KEY]).toBeUndefined();
 			expect(enable).not.toHaveBeenCalled();
+			granted = true;
+			expect(await api.completeAutofillAuthorization(message.requestId, enable)).toMatchObject({ status: 'enabled' });
+			expect(sites).toEqual([{ instanceOrigin: SOURCE, targetOrigin: origin, targetPath: PATH }]);
+			expect(enable).toHaveBeenCalledOnce();
 		},
 	);
 
@@ -186,7 +281,7 @@ describe('background-owned automatic-fill permission intent', () => {
 			sites,
 		});
 		expect(enable).toHaveBeenCalledOnce();
-		expect(chrome.permissions.contains).toHaveBeenCalledWith({ origins: ['https://172.16.0.10/*'] });
+		expect(chrome.permissions.contains).toHaveBeenCalledWith({ origins: ['http://172.16.0.10/*'] });
 	});
 
 	it('also completes when the grant event ran before BEGIN persisted the intent', async () => {
@@ -305,43 +400,54 @@ describe('background-owned automatic-fill permission intent', () => {
 		},
 	);
 
-	it.each(['mode', 'source', 'origin', 'port', 'document', 'pending navigation', 'source permission', 'expired', 'clock backwards'])(
-		'rejects a later grant after %s changes and clears the intent',
-		async (change) => {
-			await api.beginAutofillAuthorization(message, generation, enable);
-			granted = true;
-			if (change === 'mode') {
-				mocks.getConnectionStatus.mockResolvedValue({ mode: 'session' });
-			}
-			if (change === 'source') {
-				mocks.getSettings.mockResolvedValue({ instanceOrigin: 'https://other.example' });
-			}
-			if (change === 'origin') {
-				chrome.tabs.get.mockResolvedValue({ id: 7, url: 'https://172.16.0.11:8080' });
-			}
-			if (change === 'port') {
-				chrome.tabs.get.mockResolvedValue({ id: 7, url: 'https://172.16.0.10:8081' });
-			}
-			if (change === 'document') {
-				mocks.sendDocumentMessage.mockRejectedValue(new Error('No receiver'));
-			}
-			if (change === 'pending navigation') {
-				chrome.tabs.get.mockResolvedValue({ id: 7, url: TARGET, pendingUrl: `${TARGET}/next` });
-			}
-			if (change === 'source permission') {
-				chrome.permissions.contains.mockResolvedValue(false);
-			}
-			if (change === 'expired') {
-				values[KEY].createdAt -= 120001;
-			}
-			if (change === 'clock backwards') {
-				values[KEY].createdAt += 60000;
-			}
-			await expect(api.completeAutofillAuthorization(undefined, enable)).rejects.toBeInstanceOf(Error);
-			expect(enable).not.toHaveBeenCalled();
-			expect(values[KEY]).toBeUndefined();
-		},
-	);
+	it.each([
+		'mode',
+		'source',
+		'origin',
+		'scheme',
+		'port',
+		'document',
+		'pending navigation',
+		'source permission',
+		'expired',
+		'clock backwards',
+	])('rejects a later grant after %s changes and clears the intent', async (change) => {
+		await api.beginAutofillAuthorization(message, generation, enable);
+		granted = true;
+		if (change === 'mode') {
+			mocks.getConnectionStatus.mockResolvedValue({ mode: 'session' });
+		}
+		if (change === 'source') {
+			mocks.getSettings.mockResolvedValue({ instanceOrigin: 'https://other.example' });
+		}
+		if (change === 'origin') {
+			chrome.tabs.get.mockResolvedValue({ id: 7, url: 'http://172.16.0.11:8080/login' });
+		}
+		if (change === 'scheme') {
+			chrome.tabs.get.mockResolvedValue({ id: 7, url: 'https://172.16.0.10:8080/login' });
+		}
+		if (change === 'port') {
+			chrome.tabs.get.mockResolvedValue({ id: 7, url: 'http://172.16.0.10:8081/login' });
+		}
+		if (change === 'document') {
+			mocks.sendDocumentMessage.mockRejectedValue(new Error('No receiver'));
+		}
+		if (change === 'pending navigation') {
+			chrome.tabs.get.mockResolvedValue({ id: 7, url: TARGET, pendingUrl: `${TARGET}/next` });
+		}
+		if (change === 'source permission') {
+			chrome.permissions.contains.mockResolvedValue(false);
+		}
+		if (change === 'expired') {
+			values[KEY].createdAt -= 120001;
+		}
+		if (change === 'clock backwards') {
+			values[KEY].createdAt += 60000;
+		}
+		await expect(api.completeAutofillAuthorization(undefined, enable)).rejects.toBeInstanceOf(Error);
+		expect(enable).not.toHaveBeenCalled();
+		expect(values[KEY]).toBeUndefined();
+	});
 
 	it('rechecks the original generation after a pending storage write', async () => {
 		const original = chrome.storage.session.set.getMockImplementation();

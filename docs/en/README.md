@@ -2,15 +2,15 @@
 
 A two-factor authentication key management system built on Cloudflare Workers. Free to deploy, globally accelerated, with PWA offline support.
 
-![Version](https://img.shields.io/badge/version-1.10.0-blue)
+![Version](https://img.shields.io/badge/version-1.11.0-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 ![Platform](https://img.shields.io/badge/platform-Cloudflare%20Workers-orange)
 
 <!-- README_LANGUAGE_NAV_START -->
 
-[简体中文](README.md) · [繁體中文](README_TC.md) · **[English](README_EN.md)** · [日本語](README_JA.md) · [한국어](README_KO.md) ·
-[Deutsch](README_DE.md) · [Français](README_FR.md) · [Español](README_ES.md) · [Português (Brasil)](README_PT_BR.md) · [Italiano](README_IT.md) ·
-[Русский](README_RU.md) · [Türkçe](README_TR.md) · [Bahasa Indonesia](README_ID.md) · [Tiếng Việt](README_VI.md) · [ไทย](README_TH.md)
+[简体中文](../../README.md) · [繁體中文](../zh-TW/README.md) · **[English](README.md)** · [日本語](../ja/README.md) · [한국어](../ko/README.md) ·
+[Deutsch](../de/README.md) · [Français](../fr/README.md) · [Español](../es/README.md) · [Português (Brasil)](../pt-BR/README.md) · [Italiano](../it/README.md) ·
+[Русский](../ru/README.md) · [Türkçe](../tr/README.md) · [Bahasa Indonesia](../id/README.md) · [Tiếng Việt](../vi/README.md) · [ไทย](../th/README.md)
 
 <!-- README_LANGUAGE_NAV_END -->
 
@@ -22,15 +22,15 @@ The web app, browser extensions, initial setup, public OTP pages, API messages a
 
 Install 2FA Verification Assistant: **[Chrome Web Store](https://chromewebstore.google.com/detail/2fa-%E9%AA%8C%E8%AF%81%E5%8A%A9%E6%89%8B/lifeiloiefdlbohelpjajdbopeocalhl)** · **[Microsoft Edge Add-ons](https://microsoftedge.microsoft.com/addons/detail/kmchncmoddhdlbpfoejeahdjhieghklm)** · **[Firefox Add-ons](https://addons.mozilla.org/zh-CN/firefox/addon/2fa-%E9%AA%8C%E8%AF%81%E5%8A%A9%E6%89%8B/)**.
 
-Open the installation link in the corresponding browser. After installation, enter your self-hosted 2FA instance URL in the extension settings and sign in to that instance in the same browser to view, copy, and fill TOTP codes. Automatic filling requires separate permission for each verification page. The extension requires a deployed instance of this project, and its interface supports the 15 languages listed above. Firefox requires desktop version 153 or later in a normal tab using the default container; container tabs, private windows, and Android are not supported.
+Open the installation link in the corresponding browser. After installation, enter your self-hosted 2FA instance URL in the extension settings and sign in to that instance in the same browser to view, copy, and fill TOTP codes. Automatic filling requires permission for each website, which you can grant the first time you fill a code there. The extension requires a deployed instance of this project, and its interface supports the 15 languages listed above. Firefox desktop and Android require version 153 or later and normal tabs; desktop container tabs and private tabs on either platform are not supported. Firefox for Android is supported from version 1.2.0 in the add-on store, but has not yet been tested on a physical device. Firefox for Android does not provide extension keyboard shortcuts. A user has confirmed that the extension works in Edge for Android.
 
-[Installation and usage guide](docs/BROWSER_EXTENSION.md) · [Chrome / Edge privacy policy](extension/PRIVACY.md) · [Firefox privacy policy](extension/PRIVACY_FIREFOX.md) (Chinese)
+[Installation and usage guide](../BROWSER_EXTENSION.md) · [Chrome / Edge privacy policy](../../extension/PRIVACY.md) · [Firefox privacy policy](../../extension/PRIVACY_FIREFOX.md) (Chinese)
 
 ## 📸 Screenshots
 
-|                    Desktop                     |                    Tablet                    |                    Mobile                    |
-| :--------------------------------------------: | :------------------------------------------: | :------------------------------------------: |
-| ![Desktop](docs/images/screenshot-desktop.png) | ![Tablet](docs/images/screenshot-tablet.png) | ![Mobile](docs/images/screenshot-mobile.png) |
+|                   Desktop                    |                   Tablet                   |                   Mobile                   |
+| :------------------------------------------: | :----------------------------------------: | :----------------------------------------: |
+| ![Desktop](../images/screenshot-desktop.png) | ![Tablet](../images/screenshot-tablet.png) | ![Mobile](../images/screenshot-mobile.png) |
 
 ## 🚀 Quick Deployment
 
@@ -82,15 +82,21 @@ One-click deploy creates an independent repository (not a Fork). Upgrades are do
 
 The workflow automatically preserves your repository's Worker name, KV bindings, and common deployment settings, and redeploys **the same Worker**. Existing workflow files in your repository are also preserved.
 
-> **If Sync Upstream is missing**: A repository created by one-click deploy may not include workflows. Only in that case, add `.github/workflows/sync-upstream.yml` to your repository, copy its contents from <https://github.com/wuzf/2fa/blob/main/.github/workflows/sync-upstream.yml>, and commit it once. Then follow the upgrade steps above.
+> **If Sync Upstream is missing**: One-click deploy does not copy `.github/workflows` when it imports the repository, so a new repository has no workflows and needs this entry before the first upgrade. Replace `OWNER/REPO` in the link below with your repository (for example `alice/2fa`) and open it in your browser. GitHub fills in the file name and contents; click **Commit changes**:
+>
+> ```text
+> https://github.com/OWNER/REPO/new/main?filename=.github/workflows/sync-upstream.yml&value=%23%20Save%20as%20.github%2Fworkflows%2Fsync-upstream.yml%20in%20your%20repository.%0A%23%20The%20upgrade%20steps%20come%20from%20wuzf%2F2fa%2C%20so%20this%20file%20never%20needs%20updating.%0Aname%3A%20Sync%20Upstream%0A%0Aon%3A%0A%20%20workflow_dispatch%3A%0A%20%20%20%20inputs%3A%0A%20%20%20%20%20%20upstream_ref%3A%0A%20%20%20%20%20%20%20%20description%3A%20Upstream%20branch%20or%20tag%20to%20sync%0A%20%20%20%20%20%20%20%20required%3A%20false%0A%20%20%20%20%20%20%20%20default%3A%20main%0A%0Apermissions%3A%0A%20%20contents%3A%20write%0A%0Ajobs%3A%0A%20%20sync%3A%0A%20%20%20%20uses%3A%20wuzf%2F2fa%2F.github%2Fworkflows%2Fsync-upstream.yml%40main%0A%20%20%20%20with%3A%0A%20%20%20%20%20%20upstream_ref%3A%20%24%7B%7B%20inputs.upstream_ref%20%7D%7D%0A
+> ```
+>
+> You can also create `.github/workflows/sync-upstream.yml` yourself and copy its contents from <https://github.com/wuzf/2fa/blob/main/.github/sync-upstream-entry.yml>. The entry is only a few lines; the upgrade steps come from upstream, so it never needs updating. Then follow the upgrade steps above.
 
-> **If an earlier upgrade failed with `without workflows permission`**: Once the fix is published to upstream `main`, existing **Sync Upstream** workflows with the automatic deployment config merge step can upgrade using the steps above, without editing YAML or configuring a PAT. Start a new run with `main`; older release tags do not include the fix. For other cases, see [upgrade troubleshooting](docs/DEPLOYMENT.md#升级故障排查) (Chinese).
+> **If an earlier upgrade failed with `without workflows permission`**: Once the fix is published to upstream `main`, existing **Sync Upstream** workflows with the automatic deployment config merge step can upgrade using the steps above, without editing YAML or configuring a PAT. Start a new run with `main`; older release tags do not include the fix. For other cases, see [upgrade troubleshooting](../DEPLOYMENT.md#升级故障排查) (Chinese).
 
 This approach does not affect existing Workers, KV bindings, or Secrets. **If you've already set `ENCRYPTION_KEY`, you don't need to re-enter it during upgrades; if you haven't set it, you can still use this upgrade process.**
 
 > ⚠️ `ENCRYPTION_KEY` is the master key for decrypting existing data. Please make sure to save it to a password manager when first created. Cloudflare Secrets cannot be viewed after saving; normal upgrades don't require re-entry, but if you delete it without saving the original value, existing encrypted data cannot be recovered.
 
-> ⚠️ **Rolling back to a version before 1.8.0**: Since 1.8.0, HOTP counter increments are stored separately from the main data. Before rolling back, call the compaction endpoint once to write the counters back; otherwise HOTP counters revert to their values at upgrade time. See [rollback steps](docs/DEPLOYMENT.md#回滚到-180-之前的版本) (Chinese). Deployments that only use TOTP are not affected.
+> ⚠️ **Rolling back to a version before 1.8.0**: Since 1.8.0, HOTP counter increments are stored separately from the main data. Before rolling back, call the compaction endpoint once to write the counters back; otherwise HOTP counters revert to their values at upgrade time. See [rollback steps](../DEPLOYMENT.md#回滚到-180-之前的版本) (Chinese). Deployments that only use TOTP are not affected.
 
 #### Checking the Merge Result
 
@@ -166,7 +172,7 @@ Add and manage remote backup targets in **Settings → Sync Settings**.
 
 Remote backups store the same backup content generated by the app. If `ENCRYPTION_KEY` was configured when the backup was created, the remote file is encrypted ciphertext too; restoring it requires keeping the same `ENCRYPTION_KEY` in the Worker.
 
-Detailed setup steps: [Cloud Drive Setup](docs/CLOUD_DRIVE_SETUP.md) (currently Chinese).
+Detailed setup steps: [Cloud Drive Setup](../CLOUD_DRIVE_SETUP.md) (currently Chinese).
 
 ### Settings
 
@@ -190,11 +196,11 @@ After installation, use it like a native app in full screen with offline access 
 
 ### Chrome / Edge / Firefox TOTP Filling
 
-Click the extension to select an account, or press `Ctrl+Shift+U` to fill the current TOTP for a previously bound account. With permission for each verification page, the extension can detect and fill verification fields automatically; multiple matches show an account picker. It supports a single field or 6/8 separate digit fields and does not submit the form.
+Click the extension to select an account, or press `Ctrl+Shift+U` to fill the current TOTP for a previously bound account. Once a website is authorized, the extension can detect and fill its verification fields automatically; multiple matches show an account picker. It supports a single field or 6/8 separate digit fields and does not submit the form.
 
 After signing in to the 2FA instance in the same browser profile and granting instance access, you can close the instance tab. By default, the extension reads secrets through the valid session and computes codes in background memory for each task; sign in again when the session expires. Explicitly enabling offline use saves an independent local secret cache so codes remain available without a network connection or an open instance tab. The cache has no additional password encryption. Authorized extension code can read the entire secret list, but seeds are never sent to the popup or target site. Open Shadow DOM and same-origin iframe fields are supported; HOTP, cross-origin iframes, closed Shadow DOM, and private browsing are not supported.
 
-See the [installation and usage guide](docs/BROWSER_EXTENSION.md), [Chrome / Edge privacy notice](extension/PRIVACY.md), and [Firefox privacy notice](extension/PRIVACY_FIREFOX.md) (currently Chinese).
+See the [installation and usage guide](../BROWSER_EXTENSION.md), [Chrome / Edge privacy notice](../../extension/PRIVACY.md), and [Firefox privacy notice](../../extension/PRIVACY_FIREFOX.md) (currently Chinese).
 
 ## 🔒 Security
 
@@ -220,23 +226,23 @@ TOTP pages show both the current and next codes, each available to copy, and upd
 
 ## 📚 More Documentation
 
-| Document                                       | Description                                                            |
-| ---------------------------------------------- | ---------------------------------------------------------------------- |
-| [Deployment Guide](docs/DEPLOYMENT.md)         | Manual deployment, KV config, Secrets                                  |
-| [Cloud Drive Setup](docs/CLOUD_DRIVE_SETUP.md) | OneDrive / Google Drive setup steps (Chinese)                          |
-| [API Reference](docs/API_REFERENCE.md)         | Complete API endpoint documentation                                    |
-| [Architecture](docs/ARCHITECTURE.md)           | System architecture & technical design                                 |
-| [Development Guide](docs/DEVELOPMENT.md)       | Local development, testing, code style                                 |
-| [PWA Guide](docs/PWA_GUIDE.md)                 | PWA installation & offline features                                    |
-| [Browser Extension](docs/BROWSER_EXTENSION.md) | Chrome / Edge / Firefox installation, usage, and permissions (Chinese) |
+| Document                                     | Description                                                            |
+| -------------------------------------------- | ---------------------------------------------------------------------- |
+| [Deployment Guide](../DEPLOYMENT.md)         | Manual deployment, KV config, Secrets                                  |
+| [Cloud Drive Setup](../CLOUD_DRIVE_SETUP.md) | OneDrive / Google Drive setup steps (Chinese)                          |
+| [API Reference](../API_REFERENCE.md)         | Complete API endpoint documentation                                    |
+| [Architecture](../ARCHITECTURE.md)           | System architecture & technical design                                 |
+| [Development Guide](../DEVELOPMENT.md)       | Local development, testing, code style                                 |
+| [PWA Guide](../PWA_GUIDE.md)                 | PWA installation & offline features                                    |
+| [Browser Extension](../BROWSER_EXTENSION.md) | Chrome / Edge / Firefox installation, usage, and permissions (Chinese) |
 
 ## 🤝 Contributing
 
-Welcome to submit [Issues](https://github.com/wuzf/2fa/issues) and [Pull Requests](https://github.com/wuzf/2fa/pulls). For development details, see the [Development Guide](docs/DEVELOPMENT.md).
+Welcome to submit [Issues](https://github.com/wuzf/2fa/issues) and [Pull Requests](https://github.com/wuzf/2fa/pulls). For development details, see the [Development Guide](../DEVELOPMENT.md).
 
 ## 📄 License
 
-[MIT License](LICENSE)
+[MIT License](../../LICENSE)
 
 ## 🌟 Star History
 

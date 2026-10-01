@@ -5,7 +5,7 @@
  *
  * 版本号唯一数据源是 package.json，其余位置由本脚本同步：
  *   - src/utils/version.js  (APP_VERSION，前端 footer 和新版本检测依赖)
- *   - README.md / README_EN.md  (版本徽章)
+ *   - README.md / docs/en/README.md  (版本徽章)
  *
  * 使用方式：
  *   npm run release:patch          # 1.6.0 → 1.6.1
@@ -50,7 +50,7 @@ const SYNC_TARGETS = [
 		replacement: (v) => `$1${v}$2`,
 	},
 	{
-		file: 'README_EN.md',
+		file: 'docs/en/README.md',
 		pattern: /(badge\/version-)\d+\.\d+\.\d+(-blue)/,
 		replacement: (v) => `$1${v}$2`,
 	},
@@ -77,6 +77,28 @@ function run(cmd, options = {}) {
 
 function readPackageVersion() {
 	return JSON.parse(readFileSync(join(ROOT, 'package.json'), 'utf-8')).version;
+}
+
+/**
+ * Set the version of the project in package-lock.json and change nothing else.
+ *
+ * `npm install --package-lock-only` would resolve the whole tree again with the
+ * local npm, and some npm versions drop fields such as `libc` of optional
+ * platform packages. The lockfile is npm's two-space JSON, so the parsed file is
+ * written back in the same format; a file that does not round-trip is rejected.
+ */
+export function setLockfileVersion(lockfileText, version) {
+	const lockfile = JSON.parse(lockfileText);
+	if (JSON.stringify(lockfile, null, 2) + '\n' !== lockfileText.replace(/\r\n/g, '\n')) {
+		throw new Error('package-lock.json 不是 npm 的标准格式，请先运行 npm install 重新生成后再发版');
+	}
+	const root = lockfile.packages?.[''];
+	if (typeof lockfile.version !== 'string' || typeof root?.version !== 'string') {
+		throw new Error('package-lock.json 缺少项目版本字段');
+	}
+	lockfile.version = version;
+	root.version = version;
+	return JSON.stringify(lockfile, null, 2) + '\n';
 }
 
 /** Reject changes that would make the tested tree differ from the release tag. */
@@ -239,7 +261,8 @@ function main() {
 	const pkgContent = readFileSync(pkgPath, 'utf-8');
 	writeFileSync(pkgPath, pkgContent.replace(/("version":\s*")\d+\.\d+\.\d+(")/, `$1${newVersion}$2`));
 	console.log(`✅ package.json → ${newVersion}`);
-	run('npm install --package-lock-only --ignore-scripts', { stdio: 'ignore' });
+	const lockPath = join(ROOT, 'package-lock.json');
+	writeFileSync(lockPath, setLockfileVersion(readFileSync(lockPath, 'utf-8'), newVersion));
 	console.log(`✅ package-lock.json → ${newVersion}`);
 
 	// 5. 同步其余位置

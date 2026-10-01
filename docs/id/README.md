@@ -8,9 +8,9 @@ Sistem pengelolaan kunci autentikasi dua faktor yang dibangun di atas Cloudflare
 
 <!-- README_LANGUAGE_NAV_START -->
 
-[简体中文](README.md) · [繁體中文](README_TC.md) · [English](README_EN.md) · [日本語](README_JA.md) · [한국어](README_KO.md) ·
-[Deutsch](README_DE.md) · [Français](README_FR.md) · [Español](README_ES.md) · [Português (Brasil)](README_PT_BR.md) · [Italiano](README_IT.md) ·
-[Русский](README_RU.md) · [Türkçe](README_TR.md) · **[Bahasa Indonesia](README_ID.md)** · [Tiếng Việt](README_VI.md) · [ไทย](README_TH.md)
+[简体中文](../../README.md) · [繁體中文](../zh-TW/README.md) · [English](../en/README.md) · [日本語](../ja/README.md) · [한국어](../ko/README.md) ·
+[Deutsch](../de/README.md) · [Français](../fr/README.md) · [Español](../es/README.md) · [Português (Brasil)](../pt-BR/README.md) · [Italiano](../it/README.md) ·
+[Русский](../ru/README.md) · [Türkçe](../tr/README.md) · **[Bahasa Indonesia](README.md)** · [Tiếng Việt](../vi/README.md) · [ไทย](../th/README.md)
 
 <!-- README_LANGUAGE_NAV_END -->
 
@@ -22,15 +22,15 @@ Aplikasi web, ekstensi browser, penyiapan awal, halaman OTP publik, pesan API, d
 
 Pasang 2FA Verification Assistant: **[Chrome Web Store](https://chromewebstore.google.com/detail/2fa-%E9%AA%8C%E8%AF%81%E5%8A%A9%E6%89%8B/lifeiloiefdlbohelpjajdbopeocalhl)** · **[Microsoft Edge Add-ons](https://microsoftedge.microsoft.com/addons/detail/kmchncmoddhdlbpfoejeahdjhieghklm)** · **[Firefox Add-ons](https://addons.mozilla.org/zh-CN/firefox/addon/2fa-%E9%AA%8C%E8%AF%81%E5%8A%A9%E6%89%8B/)**.
 
-Buka tautan pemasangan di browser yang sesuai. Setelah terpasang, masukkan URL instans 2FA yang Anda kelola sendiri di pengaturan ekstensi, lalu masuk ke instans tersebut di browser yang sama untuk melihat, menyalin, dan mengisi kode TOTP. Pengisian otomatis memerlukan izin terpisah untuk setiap halaman verifikasi. Ekstensi ini memerlukan instans proyek yang sudah diterapkan, dan antarmukanya mendukung 15 bahasa di atas. Firefox memerlukan versi desktop 153 atau lebih baru, dengan tab normal yang menggunakan kontainer default; tab kontainer, jendela privat, dan Android tidak didukung.
+Buka tautan pemasangan di browser yang sesuai. Setelah terpasang, masukkan URL instans 2FA yang Anda kelola sendiri di pengaturan ekstensi, lalu masuk ke instans tersebut di browser yang sama untuk melihat, menyalin, dan mengisi kode TOTP. Pengisian otomatis memerlukan izin untuk setiap situs web, yang dapat Anda berikan saat pertama kali mengisi kode di situs tersebut. Ekstensi ini memerlukan instans proyek yang sudah diterapkan, dan antarmukanya mendukung 15 bahasa di atas. Firefox desktop dan Android memerlukan versi 153 atau lebih baru serta tab normal; tab kontainer di desktop dan tab privat di kedua platform tidak didukung. Firefox untuk Android didukung mulai versi 1.2.0 di toko ekstensi, tetapi belum diuji pada perangkat fisik. Firefox untuk Android tidak menyediakan pintasan keyboard ekstensi.
 
-[Panduan pemasangan dan penggunaan](docs/BROWSER_EXTENSION.md) · [Kebijakan privasi Chrome / Edge](extension/PRIVACY.md) · [Kebijakan privasi Firefox](extension/PRIVACY_FIREFOX.md) (bahasa Tionghoa)
+[Panduan pemasangan dan penggunaan](../BROWSER_EXTENSION.md) · [Kebijakan privasi Chrome / Edge](../../extension/PRIVACY.md) · [Kebijakan privasi Firefox](../../extension/PRIVACY_FIREFOX.md) (bahasa Tionghoa)
 
 ## 📸 Tangkapan layar
 
-|                    Desktop                     |                    Tablet                    |                    Ponsel                    |
-| :--------------------------------------------: | :------------------------------------------: | :------------------------------------------: |
-| ![Desktop](docs/images/screenshot-desktop.png) | ![Tablet](docs/images/screenshot-tablet.png) | ![Ponsel](docs/images/screenshot-mobile.png) |
+|                   Desktop                    |                   Tablet                   |                   Ponsel                   |
+| :------------------------------------------: | :----------------------------------------: | :----------------------------------------: |
+| ![Desktop](../images/screenshot-desktop.png) | ![Tablet](../images/screenshot-tablet.png) | ![Ponsel](../images/screenshot-mobile.png) |
 
 ## 🚀 Penerapan cepat
 
@@ -82,15 +82,21 @@ Penerapan sekali klik membuat repositori mandiri (bukan Fork). Pembaruan dilakuk
 
 Alur kerja ini otomatis mempertahankan nama Worker, binding KV, serta pengaturan penerapan umum repositori Anda, dan menerapkan ulang **Worker yang sama**. Berkas alur kerja yang sudah ada di repositori juga dipertahankan.
 
-> **Jika Sync Upstream tidak ada**: Repositori yang dibuat melalui penerapan sekali klik mungkin tidak menyertakan alur kerja. Hanya dalam kondisi ini, tambahkan `.github/workflows/sync-upstream.yml` ke repositori Anda, salin isinya dari <https://github.com/wuzf/2fa/blob/main/.github/workflows/sync-upstream.yml>, lalu lakukan commit sekali. Setelah itu, ikuti langkah pembaruan di atas.
+> **Jika Sync Upstream tidak ada**: Penerapan sekali klik tidak menyalin `.github/workflows` saat mengimpor repositori, sehingga repositori baru tidak memiliki alur kerja dan memerlukan entri ini sebelum pembaruan pertama. Ganti `OWNER/REPO` pada tautan di bawah dengan repositori Anda (misalnya `alice/2fa`), lalu buka di peramban. GitHub akan mengisi nama dan isi berkas; klik **Commit changes**:
+>
+> ```text
+> https://github.com/OWNER/REPO/new/main?filename=.github/workflows/sync-upstream.yml&value=%23%20Save%20as%20.github%2Fworkflows%2Fsync-upstream.yml%20in%20your%20repository.%0A%23%20The%20upgrade%20steps%20come%20from%20wuzf%2F2fa%2C%20so%20this%20file%20never%20needs%20updating.%0Aname%3A%20Sync%20Upstream%0A%0Aon%3A%0A%20%20workflow_dispatch%3A%0A%20%20%20%20inputs%3A%0A%20%20%20%20%20%20upstream_ref%3A%0A%20%20%20%20%20%20%20%20description%3A%20Upstream%20branch%20or%20tag%20to%20sync%0A%20%20%20%20%20%20%20%20required%3A%20false%0A%20%20%20%20%20%20%20%20default%3A%20main%0A%0Apermissions%3A%0A%20%20contents%3A%20write%0A%0Ajobs%3A%0A%20%20sync%3A%0A%20%20%20%20uses%3A%20wuzf%2F2fa%2F.github%2Fworkflows%2Fsync-upstream.yml%40main%0A%20%20%20%20with%3A%0A%20%20%20%20%20%20upstream_ref%3A%20%24%7B%7B%20inputs.upstream_ref%20%7D%7D%0A
+> ```
+>
+> Anda juga dapat membuat `.github/workflows/sync-upstream.yml` sendiri dan menyalin isinya dari <https://github.com/wuzf/2fa/blob/main/.github/sync-upstream-entry.yml>. Entri ini hanya beberapa baris; langkah pembaruannya berasal dari repositori upstream, jadi tidak perlu diperbarui lagi. Setelah itu, ikuti langkah pembaruan di atas.
 
-> **Jika pembaruan sebelumnya gagal dengan `without workflows permission`**: Setelah perbaikan dipublikasikan ke `main` upstream, alur kerja **Sync Upstream** yang sudah memiliki langkah penggabungan konfigurasi penerapan otomatis dapat memperbarui dengan langkah di atas tanpa mengedit YAML atau mengonfigurasi PAT. Mulai eksekusi baru dengan `main`; tag rilis lama tidak menyertakan perbaikan ini. Untuk kasus lainnya, lihat [pemecahan masalah pembaruan](docs/DEPLOYMENT.md#升级故障排查) (bahasa Tionghoa).
+> **Jika pembaruan sebelumnya gagal dengan `without workflows permission`**: Setelah perbaikan dipublikasikan ke `main` upstream, alur kerja **Sync Upstream** yang sudah memiliki langkah penggabungan konfigurasi penerapan otomatis dapat memperbarui dengan langkah di atas tanpa mengedit YAML atau mengonfigurasi PAT. Mulai eksekusi baru dengan `main`; tag rilis lama tidak menyertakan perbaikan ini. Untuk kasus lainnya, lihat [pemecahan masalah pembaruan](../DEPLOYMENT.md#升级故障排查) (bahasa Tionghoa).
 
 Cara ini tidak memengaruhi Workers, binding KV, atau Secrets yang sudah ada. **Jika `ENCRYPTION_KEY` sudah diatur, Anda tidak perlu memasukkannya lagi saat memperbarui; jika belum diatur, Anda tetap dapat menggunakan proses pembaruan ini.**
 
 > ⚠️ `ENCRYPTION_KEY` adalah kunci utama untuk mendekripsi data yang sudah ada. Pastikan Anda menyimpannya ke pengelola kata sandi saat pertama kali dibuat. Cloudflare Secrets tidak dapat dilihat setelah disimpan; pembaruan normal tidak memerlukan input ulang, tetapi jika Anda menghapusnya tanpa menyimpan nilai aslinya, data terenkripsi yang ada tidak dapat dipulihkan.
 
-> ⚠️ **Kembali ke versi sebelum 1.8.0**: Sejak 1.8.0, kenaikan penghitung HOTP disimpan terpisah dari data utama. Sebelum kembali ke versi lama, panggil endpoint pemadatan sekali untuk menulis penghitung kembali ke data utama; jika tidak, penghitung HOTP akan kembali ke nilai saat pembaruan dilakukan. Lihat [langkah kembali ke versi lama](docs/DEPLOYMENT.md#回滚到-180-之前的版本) (bahasa Tionghoa). Instalasi yang hanya menggunakan TOTP tidak terpengaruh.
+> ⚠️ **Kembali ke versi sebelum 1.8.0**: Sejak 1.8.0, kenaikan penghitung HOTP disimpan terpisah dari data utama. Sebelum kembali ke versi lama, panggil endpoint pemadatan sekali untuk menulis penghitung kembali ke data utama; jika tidak, penghitung HOTP akan kembali ke nilai saat pembaruan dilakukan. Lihat [langkah kembali ke versi lama](../DEPLOYMENT.md#回滚到-180-之前的版本) (bahasa Tionghoa). Instalasi yang hanya menggunakan TOTP tidak terpengaruh.
 
 #### Memeriksa hasil penggabungan
 
@@ -166,7 +172,7 @@ Tambahkan dan kelola tujuan cadangan jarak jauh di **Pengaturan → Pengaturan s
 
 Cadangan jarak jauh menyimpan isi cadangan yang sama dengan yang dihasilkan aplikasi. Jika `ENCRYPTION_KEY` dikonfigurasi saat cadangan dibuat, berkas jarak jauh juga berupa teks terenkripsi; untuk memulihkannya, Worker harus tetap menggunakan `ENCRYPTION_KEY` yang sama.
 
-Langkah penyiapan terperinci: [Penyiapan drive cloud](docs/CLOUD_DRIVE_SETUP.md) (saat ini dalam bahasa Tionghoa).
+Langkah penyiapan terperinci: [Penyiapan drive cloud](../CLOUD_DRIVE_SETUP.md) (saat ini dalam bahasa Tionghoa).
 
 ### Pengaturan
 
@@ -190,11 +196,11 @@ Setelah terpasang, gunakan dalam layar penuh seperti aplikasi native, dengan duk
 
 ### Pengisian TOTP di Chrome / Edge / Firefox
 
-Klik ekstensi untuk memilih akun, atau tekan `Ctrl+Shift+U` untuk mengisi TOTP saat ini bagi akun yang sudah ditautkan sebelumnya. Dengan izin untuk setiap halaman verifikasi, ekstensi dapat mendeteksi dan mengisi kolom verifikasi secara otomatis; jika ada beberapa kecocokan, pemilih akun akan ditampilkan. Mendukung satu kolom atau 6/8 kolom digit terpisah dan tidak mengirimkan formulir.
+Klik ekstensi untuk memilih akun, atau tekan `Ctrl+Shift+U` untuk mengisi TOTP saat ini bagi akun yang sudah ditautkan sebelumnya. Setelah situs web diberi izin, ekstensi dapat mendeteksi dan mengisi kolom verifikasinya secara otomatis; jika ada beberapa kecocokan, pemilih akun akan ditampilkan. Mendukung satu kolom atau 6/8 kolom digit terpisah dan tidak mengirimkan formulir.
 
 Setelah masuk ke instans 2FA dalam profil browser yang sama dan memberikan akses instans, Anda dapat menutup tab instans. Secara default, ekstensi membaca kunci rahasia melalui sesi yang valid dan menghitung kode dalam memori latar belakang untuk setiap tugas; masuk lagi saat sesi kedaluwarsa. Mengaktifkan penggunaan offline secara eksplisit akan menyimpan cache kunci rahasia lokal yang terpisah, sehingga kode tetap tersedia tanpa koneksi jaringan atau tab instans yang terbuka. Cache tersebut tidak memiliki enkripsi kata sandi tambahan. Kode ekstensi yang diberi izin dapat membaca seluruh daftar kunci rahasia, tetapi kunci rahasia tidak pernah dikirim ke popup atau situs tujuan. Kolom di Shadow DOM terbuka dan iframe dengan origin yang sama didukung; HOTP, iframe lintas origin, Shadow DOM tertutup, dan penjelajahan privat tidak didukung.
 
-Lihat [panduan pemasangan dan penggunaan](docs/BROWSER_EXTENSION.md), [pemberitahuan privasi Chrome / Edge](extension/PRIVACY.md), dan [pemberitahuan privasi Firefox](extension/PRIVACY_FIREFOX.md) (saat ini dalam bahasa Tionghoa).
+Lihat [panduan pemasangan dan penggunaan](../BROWSER_EXTENSION.md), [pemberitahuan privasi Chrome / Edge](../../extension/PRIVACY.md), dan [pemberitahuan privasi Firefox](../../extension/PRIVACY_FIREFOX.md) (saat ini dalam bahasa Tionghoa).
 
 ## 🔒 Keamanan
 
@@ -220,23 +226,23 @@ Halaman TOTP menampilkan kode saat ini dan kode berikutnya, keduanya dapat disal
 
 ## 📚 Dokumentasi lainnya
 
-| Dokumen                                            | Deskripsi                                                                  |
-| -------------------------------------------------- | -------------------------------------------------------------------------- |
-| [Panduan penerapan](docs/DEPLOYMENT.md)            | Penerapan manual, konfigurasi KV, Secrets                                  |
-| [Penyiapan drive cloud](docs/CLOUD_DRIVE_SETUP.md) | Langkah penyiapan OneDrive / Google Drive (bahasa Tionghoa)                |
-| [Referensi API](docs/API_REFERENCE.md)             | Dokumentasi lengkap endpoint API                                           |
-| [Arsitektur](docs/ARCHITECTURE.md)                 | Arsitektur sistem dan desain teknis                                        |
-| [Panduan pengembangan](docs/DEVELOPMENT.md)        | Pengembangan lokal, pengujian, gaya kode                                   |
-| [Panduan PWA](docs/PWA_GUIDE.md)                   | Pemasangan PWA dan fitur offline                                           |
-| [Ekstensi browser](docs/BROWSER_EXTENSION.md)      | Pemasangan, penggunaan, dan izin Chrome / Edge / Firefox (bahasa Tionghoa) |
+| Dokumen                                          | Deskripsi                                                                  |
+| ------------------------------------------------ | -------------------------------------------------------------------------- |
+| [Panduan penerapan](../DEPLOYMENT.md)            | Penerapan manual, konfigurasi KV, Secrets                                  |
+| [Penyiapan drive cloud](../CLOUD_DRIVE_SETUP.md) | Langkah penyiapan OneDrive / Google Drive (bahasa Tionghoa)                |
+| [Referensi API](../API_REFERENCE.md)             | Dokumentasi lengkap endpoint API                                           |
+| [Arsitektur](../ARCHITECTURE.md)                 | Arsitektur sistem dan desain teknis                                        |
+| [Panduan pengembangan](../DEVELOPMENT.md)        | Pengembangan lokal, pengujian, gaya kode                                   |
+| [Panduan PWA](../PWA_GUIDE.md)                   | Pemasangan PWA dan fitur offline                                           |
+| [Ekstensi browser](../BROWSER_EXTENSION.md)      | Pemasangan, penggunaan, dan izin Chrome / Edge / Firefox (bahasa Tionghoa) |
 
 ## 🤝 Berkontribusi
 
-Silakan kirim [Issue](https://github.com/wuzf/2fa/issues) dan [Pull Request](https://github.com/wuzf/2fa/pulls). Untuk detail pengembangan, lihat [Panduan pengembangan](docs/DEVELOPMENT.md).
+Silakan kirim [Issue](https://github.com/wuzf/2fa/issues) dan [Pull Request](https://github.com/wuzf/2fa/pulls). Untuk detail pengembangan, lihat [Panduan pengembangan](../DEVELOPMENT.md).
 
 ## 📄 Lisensi
 
-[Lisensi MIT](LICENSE)
+[Lisensi MIT](../../LICENSE)
 
 ## 🌟 Riwayat bintang
 

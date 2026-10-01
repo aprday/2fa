@@ -180,6 +180,8 @@ Set-Cookie: auth_token=<NEW_JWT_TOKEN>; HttpOnly; Secure; SameSite=Strict; Max-A
 
 ## 密钥管理 API
 
+同时到达的新增、编辑、删除、批量导入、HOTP 计数器递增和恢复备份按到达顺序依次执行，每个请求都基于前一个请求保存后的数据，不会互相覆盖。
+
 ### 获取所有密钥
 
 **端点**: `GET /api/secrets`
@@ -503,7 +505,7 @@ Cookie: auth_token=<JWT_TOKEN>
 | 400    | 字段校验信息                                 | 请求体缺字段或类型错误                                                               |
 | 400    | `路径中的密钥ID编码无效`                     | 路径中的 `id` 不是合法的百分号编码                                                   |
 | 404    | 密钥不存在                                   | `id` 不存在                                                                          |
-| 409    | `只有HOTP密钥可以递增计数器`                 | 目标是 TOTP 或 Steam 密钥                                                            |
+| 409    | `只有HOTP密钥可以递增计数器`                 | 目标不是 HOTP 密钥                                                                   |
 | 409    | `HOTP生成参数已变更，请刷新后重试`           | 密钥、位数、算法或 namespace 与服务端不一致，`details.currentCounter` 为服务端当前值 |
 | 409    | `HOTP计数器已变更，请刷新后重试`             | 计数器已被其他设备推进，`details` 含 `expectedCounter` 与 `currentCounter`           |
 | 409    | `HOTP计数器已达到安全整数上限，无法继续递增` | 计数器已是 `Number.MAX_SAFE_INTEGER`                                                 |
@@ -1919,6 +1921,9 @@ Cache-Control: no-store
 | **409** | Conflict              | 资源冲突（如重复添加） |
 | **429** | Too Many Requests     | 超过限流限制           |
 | **500** | Internal Server Error | 服务器内部错误         |
+| **503** | Service Unavailable   | 存储服务暂时不可用     |
+
+读写密钥的请求由 Durable Object `SECRETS_STORE` 依次处理（见 [部署指南：存储绑定](DEPLOYMENT.md#存储绑定)）。修改请求无法送达它时返回 503，`error` 为 `存储服务暂时不可用`，`message` 为 `无法确认本次修改是否已保存，请刷新后重试`：修改可能已经保存，重试前先刷新列表确认。读取请求在这种情况下改为直接读取 KV，可能暂时看到稍旧的列表。
 
 ### 错误响应格式
 
@@ -2240,26 +2245,6 @@ if login_response.ok:
     )
     print('添加结果:', add_response.json())
 ```
-
----
-
-## Webhook 集成（计划中）
-
-> **状态**: 🚧 计划中，尚未实现
-
-未来版本将支持 Webhook 集成，用于：
-
-- 密钥添加/删除通知
-- 备份完成通知
-- 异常登录警报
-
----
-
-## GraphQL API（计划中）
-
-> **状态**: 🚧 计划中，尚未实现
-
-未来版本可能提供 GraphQL 端点，提供更灵活的数据查询。
 
 ---
 

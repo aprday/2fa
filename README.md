@@ -4,13 +4,13 @@
 
 <!-- README_LANGUAGE_NAV_START -->
 
-**[简体中文](README.md)** · [繁體中文](README_TC.md) · [English](README_EN.md) · [日本語](README_JA.md) · [한국어](README_KO.md) ·
-[Deutsch](README_DE.md) · [Français](README_FR.md) · [Español](README_ES.md) · [Português (Brasil)](README_PT_BR.md) · [Italiano](README_IT.md) ·
-[Русский](README_RU.md) · [Türkçe](README_TR.md) · [Bahasa Indonesia](README_ID.md) · [Tiếng Việt](README_VI.md) · [ไทย](README_TH.md)
+**[简体中文](README.md)** · [繁體中文](docs/zh-TW/README.md) · [English](docs/en/README.md) · [日本語](docs/ja/README.md) · [한국어](docs/ko/README.md) ·
+[Deutsch](docs/de/README.md) · [Français](docs/fr/README.md) · [Español](docs/es/README.md) · [Português (Brasil)](docs/pt-BR/README.md) · [Italiano](docs/it/README.md) ·
+[Русский](docs/ru/README.md) · [Türkçe](docs/tr/README.md) · [Bahasa Indonesia](docs/id/README.md) · [Tiếng Việt](docs/vi/README.md) · [ไทย](docs/th/README.md)
 
 <!-- README_LANGUAGE_NAV_END -->
 
-![Version](https://img.shields.io/badge/version-1.10.0-blue)
+![Version](https://img.shields.io/badge/version-1.11.0-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 ![Platform](https://img.shields.io/badge/platform-Cloudflare%20Workers-orange)
 
@@ -22,7 +22,7 @@
 
 安装「2FA 验证助手」：**[Chrome 应用商店](https://chromewebstore.google.com/detail/2fa-%E9%AA%8C%E8%AF%81%E5%8A%A9%E6%89%8B/lifeiloiefdlbohelpjajdbopeocalhl)** · **[Microsoft Edge 商店](https://microsoftedge.microsoft.com/addons/detail/kmchncmoddhdlbpfoejeahdjhieghklm)** · **[Firefox 附加组件商店](https://addons.mozilla.org/zh-CN/firefox/addon/2fa-%E9%AA%8C%E8%AF%81%E5%8A%A9%E6%89%8B/)**。
 
-请使用对应浏览器打开安装链接。安装后，在扩展设置中填写自己的 2FA 实例地址，并在同一浏览器中登录实例，即可查看、复制和填充 TOTP 验证码；自动填充需在目标验证页面单独开启并授权。扩展需配合已部署的本项目使用，界面支持上述 15 种语言。Firefox 需使用 153 及以上桌面版本的普通标签页，不支持容器标签页、隐私窗口或 Android。
+请使用对应浏览器打开安装链接。安装后，在扩展设置中填写自己的 2FA 实例地址，并在同一浏览器中登录实例，即可查看、复制和填充 TOTP 验证码；自动填充按网站授权，可在首次填充时一并开启。扩展需配合已部署的本项目使用，界面支持上述 15 种语言。Firefox 桌面版与 Android 版均要求 153 及以上版本，并使用普通标签页；不支持桌面容器标签页和两端的隐私标签页。Firefox 附加组件商店自 1.2.0 版起支持 Android，尚未完成 Firefox Android 实机验证。Firefox Android 不提供扩展快捷键。Edge Android 已有用户实测可用。
 
 [安装与使用指南](docs/BROWSER_EXTENSION.md) · [Chrome / Edge 隐私政策](extension/PRIVACY.md) · [Firefox 隐私政策](extension/PRIVACY_FIREFOX.md)
 
@@ -82,7 +82,13 @@ node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"
 
 工作流会自动保留你当前仓库里的 Worker 名称、KV 绑定和常见部署配置，并重新部署**同一个 Worker**。仓库中已有的工作流文件也会保留。
 
-> **没有 Sync Upstream 入口时**：一键部署创建的仓库可能不包含工作流。此时才需要在自己的仓库中新增 `.github/workflows/sync-upstream.yml`，内容复制自上游文件：<https://github.com/wuzf/2fa/blob/main/.github/workflows/sync-upstream.yml>，并提交一次。之后按上面步骤升级。
+> **没有 Sync Upstream 入口时**：一键部署导入仓库时不会复制 `.github/workflows`，所以新建的仓库里没有这个工作流，第一次升级前要先补上。把下面链接里的 `OWNER/REPO` 换成你的仓库（例如 `alice/2fa`）后在浏览器打开，GitHub 会填好文件名和内容，点 **Commit changes** 即可：
+>
+> ```text
+> https://github.com/OWNER/REPO/new/main?filename=.github/workflows/sync-upstream.yml&value=%23%20Save%20as%20.github%2Fworkflows%2Fsync-upstream.yml%20in%20your%20repository.%0A%23%20The%20upgrade%20steps%20come%20from%20wuzf%2F2fa%2C%20so%20this%20file%20never%20needs%20updating.%0Aname%3A%20Sync%20Upstream%0A%0Aon%3A%0A%20%20workflow_dispatch%3A%0A%20%20%20%20inputs%3A%0A%20%20%20%20%20%20upstream_ref%3A%0A%20%20%20%20%20%20%20%20description%3A%20Upstream%20branch%20or%20tag%20to%20sync%0A%20%20%20%20%20%20%20%20required%3A%20false%0A%20%20%20%20%20%20%20%20default%3A%20main%0A%0Apermissions%3A%0A%20%20contents%3A%20write%0A%0Ajobs%3A%0A%20%20sync%3A%0A%20%20%20%20uses%3A%20wuzf%2F2fa%2F.github%2Fworkflows%2Fsync-upstream.yml%40main%0A%20%20%20%20with%3A%0A%20%20%20%20%20%20upstream_ref%3A%20%24%7B%7B%20inputs.upstream_ref%20%7D%7D%0A
+> ```
+>
+> 也可以手动新建 `.github/workflows/sync-upstream.yml`，内容复制自 <https://github.com/wuzf/2fa/blob/main/.github/sync-upstream-entry.yml>。这个入口只有十几行，升级步骤由上游提供，以后不用再更新它。之后按上面步骤升级。
 
 > **之前因 `without workflows permission` 升级失败**：修复发布到上游 `main` 后，已有自动合并部署配置步骤的 **Sync Upstream** 可以直接按上面步骤升级，无需修改 YAML 或配置 PAT。请选择 `main` 发起新运行，不要选择不含修复的旧版本标签。其他情况见[升级故障排查](docs/DEPLOYMENT.md#升级故障排查)。
 
@@ -190,7 +196,7 @@ node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"
 
 ### Chrome / Edge / Firefox 验证码辅助填充
 
-在目标网站点击扩展选择账户，或按 `Ctrl+Shift+U` 填入已绑定账户的当前 TOTP。按页面授权后，可自动检测验证码框并填充；多个账户匹配时显示选择面板。支持单框和 6/8 格输入，不主动提交表单。
+在目标网站点击扩展选择账户，或按 `Ctrl+Shift+U` 填入已绑定账户的当前 TOTP。为网站授权后，可在该网站自动检测验证码框并填充；多个账户匹配时显示选择面板。支持单框和 6/8 格输入，不主动提交表单。
 
 扩展使用网页登录会话，支持明确启用离线缓存，均无需保持主网页打开。网页登录模式在后台临时读取密钥，离线模式则在本机保留独立密钥缓存，断网后仍可取码。种子不传给弹窗或目标网站，离线缓存没有额外密码加密。支持开放 Shadow DOM 与同源 iframe；暂不支持 HOTP、跨域 iframe、关闭的 Shadow DOM 或隐私模式。
 

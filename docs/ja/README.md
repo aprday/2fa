@@ -8,9 +8,9 @@ Cloudflare Workers 上で動作する二要素認証キー管理システムで�
 
 <!-- README_LANGUAGE_NAV_START -->
 
-[简体中文](README.md) · [繁體中文](README_TC.md) · [English](README_EN.md) · **[日本語](README_JA.md)** · [한국어](README_KO.md) ·
-[Deutsch](README_DE.md) · [Français](README_FR.md) · [Español](README_ES.md) · [Português (Brasil)](README_PT_BR.md) · [Italiano](README_IT.md) ·
-[Русский](README_RU.md) · [Türkçe](README_TR.md) · [Bahasa Indonesia](README_ID.md) · [Tiếng Việt](README_VI.md) · [ไทย](README_TH.md)
+[简体中文](../../README.md) · [繁體中文](../zh-TW/README.md) · [English](../en/README.md) · **[日本語](README.md)** · [한국어](../ko/README.md) ·
+[Deutsch](../de/README.md) · [Français](../fr/README.md) · [Español](../es/README.md) · [Português (Brasil)](../pt-BR/README.md) · [Italiano](../it/README.md) ·
+[Русский](../ru/README.md) · [Türkçe](../tr/README.md) · [Bahasa Indonesia](../id/README.md) · [Tiếng Việt](../vi/README.md) · [ไทย](../th/README.md)
 
 <!-- README_LANGUAGE_NAV_END -->
 
@@ -22,15 +22,15 @@ Web アプリ、ブラウザー拡張機能、初期設定、公開 OTP ペー�
 
 2FA Verification Assistant をインストール：**[Chrome Web Store](https://chromewebstore.google.com/detail/2fa-%E9%AA%8C%E8%AF%81%E5%8A%A9%E6%89%8B/lifeiloiefdlbohelpjajdbopeocalhl)** · **[Microsoft Edge Add-ons](https://microsoftedge.microsoft.com/addons/detail/kmchncmoddhdlbpfoejeahdjhieghklm)** · **[Firefox Add-ons](https://addons.mozilla.org/zh-CN/firefox/addon/2fa-%E9%AA%8C%E8%AF%81%E5%8A%A9%E6%89%8B/)**。
 
-対応するブラウザーでインストールリンクを開いてください。インストール後、拡張機能の設定にセルフホストした 2FA インスタンスの URL を入力し、同じブラウザーでそのインスタンスにログインすると、TOTP コードの表示、コピー、入力ができます。自動入力には、認証ページごとに個別の許可が必要です。この拡張機能を使用するには本プロジェクトのデプロイ済みインスタンスが必要で、インターフェースは上記の 15 言語に対応しています。Firefox はデスクトップ版 153 以降で、デフォルトコンテナーの通常タブを使用する必要があります。コンテナータブ、プライベートウィンドウ、Android には対応していません。
+対応するブラウザーでインストールリンクを開いてください。インストール後、拡張機能の設定にセルフホストした 2FA インスタンスの URL を入力し、同じブラウザーでそのインスタンスにログインすると、TOTP コードの表示、コピー、入力ができます。自動入力にはサイトごとの許可が必要で、そのサイトで初めてコードを入力するときに許可できます。この拡張機能を使用するには本プロジェクトのデプロイ済みインスタンスが必要で、インターフェースは上記の 15 言語に対応しています。Firefox はデスクトップ版・Android 版ともに 153 以降と通常タブが必要です。デスクトップ版のコンテナータブと両環境のプライベートタブには対応していません。Firefox Android にはストア版 1.2.0 から対応していますが、実機検証はまだ行っていません。Firefox Android では拡張機能のキーボードショートカットを利用できません。
 
-[インストールと使用方法](docs/BROWSER_EXTENSION.md) · [Chrome / Edge プライバシーポリシー](extension/PRIVACY.md) · [Firefox プライバシーポリシー](extension/PRIVACY_FIREFOX.md)（中国語）
+[インストールと使用方法](../BROWSER_EXTENSION.md) · [Chrome / Edge プライバシーポリシー](../../extension/PRIVACY.md) · [Firefox プライバシーポリシー](../../extension/PRIVACY_FIREFOX.md)（中国語）
 
 ## 📸 スクリーンショット
 
-|                    デスクトップ                     |                    タブレット                    |                    モバイル                    |
-| :-------------------------------------------------: | :----------------------------------------------: | :--------------------------------------------: |
-| ![デスクトップ](docs/images/screenshot-desktop.png) | ![タブレット](docs/images/screenshot-tablet.png) | ![モバイル](docs/images/screenshot-mobile.png) |
+|                   デスクトップ                    |                   タブレット                   |                   モバイル                   |
+| :-----------------------------------------------: | :--------------------------------------------: | :------------------------------------------: |
+| ![デスクトップ](../images/screenshot-desktop.png) | ![タブレット](../images/screenshot-tablet.png) | ![モバイル](../images/screenshot-mobile.png) |
 
 ## 🚀 クイックデプロイ
 
@@ -82,15 +82,21 @@ node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"
 
 ワークフローはリポジトリの Worker 名、KV バインディング、一般的なデプロイ設定を自動で保持し、**同じ Worker** に再デプロイします。リポジトリに既存のワークフローファイルも保持されます。
 
-> **Sync Upstream が見つからない場合**：ワンクリックデプロイで作成したリポジトリには、ワークフローが含まれていないことがあります。その場合に限り、リポジトリに `.github/workflows/sync-upstream.yml` を追加し、<https://github.com/wuzf/2fa/blob/main/.github/workflows/sync-upstream.yml> から内容をコピーして一度コミットしてください。その後、上記の手順でアップグレードできます。
+> **Sync Upstream が見つからない場合**：ワンクリックデプロイはリポジトリを取り込む際に `.github/workflows` をコピーしないため、新しく作成したリポジトリにはワークフローがなく、最初のアップグレードの前にこのエントリーを追加する必要があります。下のリンクの `OWNER/REPO` を自分のリポジトリ（例：`alice/2fa`）に置き換えてブラウザーで開くと、GitHub がファイル名と内容を入力します。**Commit changes** をクリックしてください：
+>
+> ```text
+> https://github.com/OWNER/REPO/new/main?filename=.github/workflows/sync-upstream.yml&value=%23%20Save%20as%20.github%2Fworkflows%2Fsync-upstream.yml%20in%20your%20repository.%0A%23%20The%20upgrade%20steps%20come%20from%20wuzf%2F2fa%2C%20so%20this%20file%20never%20needs%20updating.%0Aname%3A%20Sync%20Upstream%0A%0Aon%3A%0A%20%20workflow_dispatch%3A%0A%20%20%20%20inputs%3A%0A%20%20%20%20%20%20upstream_ref%3A%0A%20%20%20%20%20%20%20%20description%3A%20Upstream%20branch%20or%20tag%20to%20sync%0A%20%20%20%20%20%20%20%20required%3A%20false%0A%20%20%20%20%20%20%20%20default%3A%20main%0A%0Apermissions%3A%0A%20%20contents%3A%20write%0A%0Ajobs%3A%0A%20%20sync%3A%0A%20%20%20%20uses%3A%20wuzf%2F2fa%2F.github%2Fworkflows%2Fsync-upstream.yml%40main%0A%20%20%20%20with%3A%0A%20%20%20%20%20%20upstream_ref%3A%20%24%7B%7B%20inputs.upstream_ref%20%7D%7D%0A
+> ```
+>
+> `.github/workflows/sync-upstream.yml` を自分で作成し、<https://github.com/wuzf/2fa/blob/main/.github/sync-upstream-entry.yml> から内容をコピーしてもかまいません。このエントリーは十数行だけで、アップグレードの手順はアップストリームから読み込まれるため、今後更新する必要はありません。その後、上記の手順でアップグレードできます。
 
-> **以前のアップグレードが `without workflows permission` で失敗した場合**：修正がアップストリームの `main` に公開された後は、デプロイ設定の自動マージ処理を含む既存の **Sync Upstream** ワークフローで、上記の手順によるアップグレードが可能です。YAML の編集や PAT の設定は不要です。`main` を指定して新しい実行を開始してください。古いリリースタグにはこの修正は含まれません。それ以外の場合は[アップグレードのトラブルシューティング](docs/DEPLOYMENT.md#升级故障排查)（中国語）を参照してください。
+> **以前のアップグレードが `without workflows permission` で失敗した場合**：修正がアップストリームの `main` に公開された後は、デプロイ設定の自動マージ処理を含む既存の **Sync Upstream** ワークフローで、上記の手順によるアップグレードが可能です。YAML の編集や PAT の設定は不要です。`main` を指定して新しい実行を開始してください。古いリリースタグにはこの修正は含まれません。それ以外の場合は[アップグレードのトラブルシューティング](../DEPLOYMENT.md#升级故障排查)（中国語）を参照してください。
 
 この方法は、既存の Worker、KV バインディング、Secrets に影響しません。**すでに `ENCRYPTION_KEY` を設定している場合、アップグレード時の再入力は不要です。未設定の場合でも、この方法でアップグレードできます。**
 
 > ⚠️ `ENCRYPTION_KEY` は既存データを復号するためのマスターキーです。初回作成時に必ずパスワードマネージャーに保存してください。Cloudflare Secrets は保存後に表示できません。通常のアップグレードで再入力は必要ありませんが、元の値を保存せずに削除した場合、既存の暗号化データを復元できなくなります。
 
-> ⚠️ **1.8.0 より前のバージョンへのロールバック**：1.8.0 以降では、HOTP カウンターの増分をメインデータとは別に保存しています。ロールバック前に compaction エンドポイントを一度呼び出してカウンターを書き戻してください。そうしないと HOTP カウンターがアップグレード時点の値に戻ります。[ロールバック手順](docs/DEPLOYMENT.md#回滚到-180-之前的版本)（中国語）を参照してください。TOTP のみを使用する環境には影響しません。
+> ⚠️ **1.8.0 より前のバージョンへのロールバック**：1.8.0 以降では、HOTP カウンターの増分をメインデータとは別に保存しています。ロールバック前に compaction エンドポイントを一度呼び出してカウンターを書き戻してください。そうしないと HOTP カウンターがアップグレード時点の値に戻ります。[ロールバック手順](../DEPLOYMENT.md#回滚到-180-之前的版本)（中国語）を参照してください。TOTP のみを使用する環境には影響しません。
 
 #### マージ結果の確認
 
@@ -166,7 +172,7 @@ node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"
 
 リモートバックアップには、アプリが生成するバックアップと同じ内容が保存されます。バックアップ作成時に `ENCRYPTION_KEY` が設定されていた場合、リモートファイルも暗号化されます。復元するには、Worker に同じ `ENCRYPTION_KEY` を保持している必要があります。
 
-詳しい設定手順：[クラウドドライブの設定](docs/CLOUD_DRIVE_SETUP.md)（現在は中国語）。
+詳しい設定手順：[クラウドドライブの設定](../CLOUD_DRIVE_SETUP.md)（現在は中国語）。
 
 ### 設定
 
@@ -190,11 +196,11 @@ node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"
 
 ### Chrome / Edge / Firefox での TOTP 入力
 
-拡張機能をクリックしてアカウントを選択するか、`Ctrl+Shift+U` を押すと、事前に関連付けたアカウントの現在の TOTP を入力できます。認証ページごとの許可がある場合は、拡張機能が認証入力欄を検出し、自動入力できます。複数のアカウントが一致するとアカウント選択画面を表示します。単一の入力欄と 6 桁／8 桁の分割入力欄に対応し、フォームの送信は行いません。
+拡張機能をクリックしてアカウントを選択するか、`Ctrl+Shift+U` を押すと、事前に関連付けたアカウントの現在の TOTP を入力できます。サイトを許可すると、拡張機能がそのサイトの認証入力欄を検出し、自動入力できます。複数のアカウントが一致するとアカウント選択画面を表示します。単一の入力欄と 6 桁／8 桁の分割入力欄に対応し、フォームの送信は行いません。
 
 同じブラウザープロファイルで 2FA インスタンスにログインし、インスタンスへのアクセスを許可した後は、インスタンスのタブを閉じても構いません。既定では、有効なセッションを通じてシークレットを読み取り、処理ごとにバックグラウンドメモリーでコードを計算します。セッションの有効期限が切れた場合は再ログインしてください。オフライン利用を明示的に有効にすると、独立したローカルのシークレットキャッシュが保存され、ネットワーク接続や開いているインスタンスタブがなくてもコードを利用できます。このキャッシュには、追加のパスワード暗号化はありません。許可された拡張機能のコードはシークレット一覧全体を読み取れますが、シークレット自体がポップアップや入力先のサイトに送信されることはありません。開いた Shadow DOM と同一オリジンの iframe 内の入力欄に対応しています。HOTP、異なるオリジンの iframe、閉じた Shadow DOM、プライベートブラウジングには対応していません。
 
-[インストールと使用方法](docs/BROWSER_EXTENSION.md)、[Chrome / Edge プライバシーに関する説明](extension/PRIVACY.md)、[Firefox プライバシーに関する説明](extension/PRIVACY_FIREFOX.md)（現在は中国語）を参照してください。
+[インストールと使用方法](../BROWSER_EXTENSION.md)、[Chrome / Edge プライバシーに関する説明](../../extension/PRIVACY.md)、[Firefox プライバシーに関する説明](../../extension/PRIVACY_FIREFOX.md)（現在は中国語）を参照してください。
 
 ## 🔒 セキュリティ
 
@@ -220,23 +226,23 @@ TOTP ページは現在と次のコードを表示し、どちらもコピーで
 
 ## 📚 その他のドキュメント
 
-| ドキュメント                                        | 内容                                                             |
-| --------------------------------------------------- | ---------------------------------------------------------------- |
-| [デプロイガイド](docs/DEPLOYMENT.md)                | 手動デプロイ、KV 設定、Secrets（中国語）                         |
-| [クラウドドライブの設定](docs/CLOUD_DRIVE_SETUP.md) | OneDrive / Google Drive の設定手順（中国語）                     |
-| [API リファレンス](docs/API_REFERENCE.md)           | API エンドポイントの完全なドキュメント（中国語）                 |
-| [アーキテクチャ](docs/ARCHITECTURE.md)              | システム構成と技術設計（中国語）                                 |
-| [開発ガイド](docs/DEVELOPMENT.md)                   | ローカル開発、テスト、コードスタイル（中国語）                   |
-| [PWA ガイド](docs/PWA_GUIDE.md)                     | PWA のインストールとオフライン機能（中国語）                     |
-| [ブラウザー拡張機能](docs/BROWSER_EXTENSION.md)     | Chrome / Edge / Firefox のインストール、使用方法、権限（中国語） |
+| ドキュメント                                      | 内容                                                             |
+| ------------------------------------------------- | ---------------------------------------------------------------- |
+| [デプロイガイド](../DEPLOYMENT.md)                | 手動デプロイ、KV 設定、Secrets（中国語）                         |
+| [クラウドドライブの設定](../CLOUD_DRIVE_SETUP.md) | OneDrive / Google Drive の設定手順（中国語）                     |
+| [API リファレンス](../API_REFERENCE.md)           | API エンドポイントの完全なドキュメント（中国語）                 |
+| [アーキテクチャ](../ARCHITECTURE.md)              | システム構成と技術設計（中国語）                                 |
+| [開発ガイド](../DEVELOPMENT.md)                   | ローカル開発、テスト、コードスタイル（中国語）                   |
+| [PWA ガイド](../PWA_GUIDE.md)                     | PWA のインストールとオフライン機能（中国語）                     |
+| [ブラウザー拡張機能](../BROWSER_EXTENSION.md)     | Chrome / Edge / Firefox のインストール、使用方法、権限（中国語） |
 
 ## 🤝 コントリビューション
 
-[Issue](https://github.com/wuzf/2fa/issues) や [Pull Request](https://github.com/wuzf/2fa/pulls) を歓迎します。開発については[開発ガイド](docs/DEVELOPMENT.md)（中国語）を参照してください。
+[Issue](https://github.com/wuzf/2fa/issues) や [Pull Request](https://github.com/wuzf/2fa/pulls) を歓迎します。開発については[開発ガイド](../DEVELOPMENT.md)（中国語）を参照してください。
 
 ## 📄 ライセンス
 
-[MIT License](LICENSE)
+[MIT License](../../LICENSE)
 
 ## 🌟 スターの履歴
 

@@ -16,6 +16,7 @@ import { getConfigurationGeneration } from './generation.js';
 import { ExtensionError, throwFromResponse } from './errors.js';
 import { requireSettings, requireInstancePermission, validateFlowConfiguration, assertCurrentGeneration } from './configuration.js';
 import { sendDocumentMessage } from './browser-access.js';
+import { canFillHiddenTarget, validateMobilePopupTarget } from './mobile-popup.js';
 import { captureTarget, validateCapturedTarget, claimPendingFlow, consumeClaim, discardClaim, prepareTarget } from './target-session.js';
 import {
 	requestSource,
@@ -139,6 +140,21 @@ export async function startFlow({ refreshSource = false, preferCache = false } =
 	};
 }
 
+// The remembered account replaces the website's other bindings so automatic
+// choice stays unique. Where accounts are told apart by login email, it
+// replaces only bindings of accounts with its own email; emails maps the bound
+// accounts' ids to the emails the flow read, and any other binding is kept.
+export function rememberAccountBinding({ instanceOrigin, targetOrigin, accountId, accountEmail }, emails = {}) {
+	return rememberBinding(
+		{ instanceOrigin, targetOrigin, accountId },
+		usesLoginEmailScope(targetOrigin)
+			? {
+					scopeOf: (id) => (id === accountId ? accountEmail : Object.hasOwn(emails, id) ? emails[id] : undefined),
+				}
+			: {},
+	);
+}
+
 export async function fillAccount(
 	{ nonce, account: rawAccount, remember = false, confirmFocused = false, automatic = false },
 	{ userCommand = false } = {},
@@ -170,6 +186,7 @@ export async function fillAccount(
 			};
 			await flow.assertAutomaticTarget();
 		}
+		flow.allowHiddenTarget = !automatic && (await canFillHiddenTarget(flow));
 		await prepareTarget(flow, account, confirmFocused);
 		let generationSource;
 		const generated = await generateForAccount(
@@ -184,6 +201,9 @@ export async function fillAccount(
 		await validateCapturedTarget(flow);
 		await flow.assertAutomaticTarget?.();
 		await consumeClaim(flow);
+		if (flow.allowHiddenTarget) {
+			await validateMobilePopupTarget(flow);
+		}
 		if (generated.expiresAt - Date.now() < 1000) {
 			throw new ExtensionError('CODE_EXPIRED');
 		}
@@ -202,6 +222,7 @@ export async function fillAccount(
 			{
 				type: MESSAGE.FILL_CODE,
 				nonce: flow.nonce,
+				...(flow.allowHiddenTarget ? { allowHiddenTarget: true } : {}),
 				expectedOrigin: flow.targetOrigin,
 				expectedTargetPath: flow.targetPath,
 				code: generated.code,
@@ -217,22 +238,14 @@ export async function fillAccount(
 			return { status: 'filled', targetOrigin: flow.targetOrigin };
 		}
 		if (remember) {
-			// The remembered account replaces the website's other bindings so
-			// automatic choice stays unique. Where accounts are told apart by login
-			// email, it replaces only bindings of accounts with its own email.
-			const emails = flow.bindingAccountEmails || {};
-			await rememberBinding(
-				{ instanceOrigin: flow.instanceOrigin, targetOrigin: flow.targetOrigin, accountId: account.id },
-				usesLoginEmailScope(flow.targetOrigin)
-					? {
-							scopeOf: (accountId) =>
-								accountId === account.id
-									? readAccountEmail(account.account)
-									: Object.hasOwn(emails, accountId)
-										? emails[accountId]
-										: undefined,
-						}
-					: {},
+			await rememberAccountBinding(
+				{
+					instanceOrigin: flow.instanceOrigin,
+					targetOrigin: flow.targetOrigin,
+					accountId: account.id,
+					accountEmail: readAccountEmail(account.account),
+				},
+				flow.bindingAccountEmails,
 			);
 		} else {
 			await removeBinding(flow.instanceOrigin, flow.targetOrigin, account.id);
