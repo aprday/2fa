@@ -8,6 +8,7 @@ import { getStyles } from './styles/index.js';
 import { getScripts, getCoreScripts } from './scripts/index.js';
 import { dialogIcon } from './dialogIcons.js';
 import { APP_VERSION } from '../utils/version.js';
+import { getPageSecurityHeaders } from '../utils/security.js';
 import { LANGUAGE_OPTIONS, normalizeLanguage } from '../shared/languages.js';
 
 /**
@@ -24,6 +25,7 @@ export async function createMainPage(options = {}) {
 
 	return new Response(html, {
 		headers: {
+			...getPageSecurityHeaders(),
 			'Content-Type': 'text/html',
 			'Cache-Control': 'no-cache, no-store, must-revalidate',
 			Pragma: 'no-cache',
@@ -557,6 +559,7 @@ function getHTMLBody() {
             </select>
           </div>
           <div class="backup-actions">
+            <button type="button" class="btn btn-outline" onclick="createBackupNow()" id="createBackupBtn" data-i18n="createBackupBtn">立即创建备份</button>
             <button type="button" class="btn btn-outline" onclick="loadBackupList()" data-i18n="restoreRefresh">刷新</button>
             <button type="button" class="btn btn-outline" onclick="exportSelectedBackup()" id="exportBackupBtn" data-i18n="restoreExport" disabled>导出备份</button>
             <input type="file" id="restoreBackupFileInput" accept=".txt,.csv,.json,.html" style="display: none;" onchange="handleRestoreBackupFile(event)">
@@ -1059,7 +1062,7 @@ function getHTMLBody() {
             </div>
 
             <div style="display: flex; gap: 10px; margin-bottom: 8px;">
-              <button class="btn btn-info" id="oneDriveAuthorizeBtn" onclick="authorizeOneDriveDest(document.getElementById('oneDriveEditId').value)" style="flex: 1;" data-i18n="pageSaveAuthorize">保存并授权</button>
+              <button class="btn btn-info" id="oneDriveAuthorizeBtn" onclick="authorizeOneDriveDest(document.getElementById('oneDriveEditId').value, { saveForm: true })" style="flex: 1;" data-i18n="pageSaveAuthorize">保存并授权</button>
               <button class="btn btn-primary" id="oneDriveSaveBtn" onclick="saveOneDriveConfig()" style="flex: 1;" data-i18n="save">保存</button>
             </div>
             <button class="btn" onclick="hideOneDriveForm()" style="width: 100%;" data-i18n="cancel">取消</button>
@@ -1104,7 +1107,7 @@ function getHTMLBody() {
             </div>
 
             <div style="display: flex; gap: 10px; margin-bottom: 8px;">
-              <button class="btn btn-info" id="googleDriveAuthorizeBtn" onclick="authorizeGoogleDriveDest(document.getElementById('googleDriveEditId').value)" style="flex: 1;" data-i18n="pageSaveAuthorize">保存并授权</button>
+              <button class="btn btn-info" id="googleDriveAuthorizeBtn" onclick="authorizeGoogleDriveDest(document.getElementById('googleDriveEditId').value, { saveForm: true })" style="flex: 1;" data-i18n="pageSaveAuthorize">保存并授权</button>
               <button class="btn btn-primary" id="googleDriveSaveBtn" onclick="saveGoogleDriveConfig()" style="flex: 1;" data-i18n="save">保存</button>
             </div>
             <button class="btn" onclick="hideGoogleDriveForm()" style="width: 100%;" data-i18n="cancel">取消</button>

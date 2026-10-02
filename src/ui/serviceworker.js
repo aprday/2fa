@@ -83,7 +83,7 @@ const STATIC_RESOURCES = [
 
 // 外部 CDN 资源（Service Worker 会自动缓存）
 const CDN_RESOURCES = [
-  'https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js',
+  'https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js',
   'https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.4.4/qrcode.min.js'
 ];
 
@@ -619,6 +619,33 @@ self.addEventListener('fetch', event => {
     return;
   }
   
+  // 按需加载的功能模块（导入、导出、扫码、备份等）：网络优先，联网时存一份，
+  // 离线时用当前版本存下的副本，新版本激活时随旧缓存一起删除。
+  // 写缓存交给 waitUntil，响应结束后 Service Worker 不会在写完前被回收
+  if (url.pathname.startsWith('/modules/') && request.method === 'GET') {
+    let cacheWrite = Promise.resolve();
+    const moduleResponse = fetch(request).then(response => {
+      if (response.ok) {
+        const responseToCache = response.clone();
+        cacheWrite = caches.open(RUNTIME_CACHE)
+          .then(cache => cache.put(request, responseToCache))
+          .catch(error => console.warn('[SW] 无法缓存功能模块:', url.pathname, error));
+      }
+      return response;
+    }).catch(err => caches.match(request).then(cached => {
+      if (cached) return cached;
+      console.error('[SW] 功能模块加载失败:', url.pathname, err);
+      return new Response(offlineText('resourceUnavailable', language), {
+        status: 503,
+        statusText: 'Service Unavailable',
+        headers: { 'Content-Type': 'text/plain; charset=utf-8' }
+      });
+    }));
+    event.respondWith(moduleResponse);
+    event.waitUntil(moduleResponse.catch(() => {}).then(() => cacheWrite));
+    return;
+  }
+
   // 其他请求：网络优先
   event.respondWith(
     fetch(request, { redirect: 'follow' }).catch(err => {
