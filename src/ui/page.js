@@ -144,27 +144,6 @@ function getHTMLBody() {
 <body class="fluent-app">
   <div class="container">
     <div class="content">
-      <div
-        id="clockWarning"
-        class="clock-warning"
-        role="status"
-        aria-live="polite"
-        aria-atomic="true"
-        hidden
-      >
-        <div class="clock-warning-message">
-          <span class="clock-warning-icon" aria-hidden="true">${dialogIcon('warning')}</span>
-          <span id="clockWarningText" class="clock-warning-text" data-i18n="clockWarningText">本地时间可能不准确，验证码可能无效。</span>
-        </div>
-        <button
-          type="button"
-          id="clockSyncRetryButton"
-          class="clock-sync-retry-button"
-          data-i18n="clockSyncRetryButton"
-          onclick="retryClockSync()"
-        >重新校时</button>
-      </div>
-
       <div class="search-section">
         <div class="search-container">
           <!-- 防止浏览器自动填充的隐藏输入框 -->
@@ -1262,6 +1241,16 @@ function getHTMLBody() {
               <select id="settingsLanguage" class="settings-select" aria-labelledby="settingsLanguageTitle" onchange="saveLanguagePreference(this.value)">
                 <option value="auto" data-i18n="langAuto">跟随系统 (Auto)</option>
                 ${LANGUAGE_OPTIONS.map(({ value, label }) => `<option value="${value}" lang="${value}">${label}</option>`).join('\n                ')}
+              </select>
+            </div>
+            <div class="settings-divider"></div>
+            <div class="settings-section">
+              <h3 class="settings-section-title" id="settingsDefaultViewModeTitle" data-i18n="defaultViewModeTitle">默认显示方式</h3>
+              <p class="settings-desc" id="settingsDefaultViewModeDesc" data-i18n="defaultViewModeDesc">选择刷新或重新打开时的显示方式。右上角可临时切换，设置仅保存在当前浏览器。</p>
+              <select id="settingsDefaultViewMode" class="settings-select" aria-labelledby="settingsDefaultViewModeTitle" aria-describedby="settingsDefaultViewModeDesc" onchange="applyDefaultViewModeFromSettings(this.value)">
+                <option value="remember" data-i18n="defaultViewModeRemember">记住上次选择</option>
+                <option value="grouped" data-i18n="viewModeGrouped">智能聚合</option>
+                <option value="flat" data-i18n="viewModeFlat">全部平铺</option>
               </select>
             </div>
             <div class="settings-divider"></div>

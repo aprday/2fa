@@ -172,11 +172,14 @@ export function getI18nCode() {
         langSelect.value = currentLanguagePreference;
       }
 
-      // 重新渲染当前可能处于活动状态的动态列表
-      if (typeof renderSecrets === 'function' && typeof secrets !== 'undefined' && Array.isArray(secrets) && secrets.length > 0) {
-        renderSecrets();
-      } else if (typeof updateSearchStats === 'function') {
-        updateSearchStats();
+      // 重新渲染当前可能处于活动状态的动态列表。登录后读到的语言偏好通常与本地相同，
+      // 界面语言不变时列表内容和排序都不变，不必整表重绘。
+      if (previousLanguage !== currentResolvedLanguage) {
+        if (typeof renderSecrets === 'function' && typeof secrets !== 'undefined' && Array.isArray(secrets) && secrets.length > 0) {
+          renderSecrets();
+        } else if (typeof updateSearchStats === 'function') {
+          updateSearchStats();
+        }
       }
       if (typeof syncSecretDialogTranslations === 'function' && document.getElementById('modalTitle')) syncSecretDialogTranslations();
       if (typeof refreshSettingsLanguage === 'function') refreshSettingsLanguage();
@@ -190,7 +193,6 @@ export function getI18nCode() {
       if (typeof refreshBackupTranslations === 'function') refreshBackupTranslations();
       if (typeof refreshGoogleMigrationTranslations === 'function') refreshGoogleMigrationTranslations();
       if (typeof refreshQRCodeTranslations === 'function') refreshQRCodeTranslations();
-      if (typeof refreshClockLanguage === 'function') refreshClockLanguage();
       if (typeof refreshAuthLanguage === 'function') refreshAuthLanguage();
       if (typeof refreshConfirmDialogLanguage === 'function') refreshConfirmDialogLanguage();
       if (typeof refreshModuleLoaderLanguage === 'function') refreshModuleLoaderLanguage();

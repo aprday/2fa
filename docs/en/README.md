@@ -2,7 +2,7 @@
 
 A two-factor authentication key management system built on Cloudflare Workers. Free to deploy, globally accelerated, with PWA offline support.
 
-![Version](https://img.shields.io/badge/version-1.12.0-blue)
+![Version](https://img.shields.io/badge/version-1.13.0-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 ![Platform](https://img.shields.io/badge/platform-Cloudflare%20Workers-orange)
 
@@ -126,7 +126,7 @@ Click the **➕** floating button in the bottom right:
 - **Copy Code**: Click the code digits directly
 - **Manage Keys**: Click **⋯** on the top right of a card → View QR Code / Copy URI / Copy page link / Edit / Delete
 - **Search**: Real-time search by service name or account name in the top search bar
-- **Smart grouping**: Automatically group related services and multiple accounts, with an option to switch back to a flat list
+- **Smart grouping**: Automatically group related services and multiple accounts, with an option to switch back to a flat list; the view used after a refresh can be pinned in Preferences
 - **Sort**: Sort by add time or name
 - **Theme**: Floating action button → **Settings → Preferences → Theme Mode**, then choose light, dark, or follow system
 
